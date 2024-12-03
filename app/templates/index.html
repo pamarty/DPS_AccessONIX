@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+
+{% block title %}AccessONIX - ONIX Generator for Accessible EPUBs{% endblock %}
+
+{% block content %}
+<div class="container">
+    <form id="onixForm" method="POST" action="{{ url_for('process') }}" enctype="multipart/form-data">
+        <div class="form-section">
+            <h2>File Upload</h2>
+            <div class="form-group">
+                <label for="epub_file">Upload Accessible EPUB:</label>
+                <input type="file" id="epub_file" name="epub_file" accept=".epub" required>
+            </div>
+
+            <div class="form-group">
+                <label for="onix_file">Upload ONIX XML:</label>
+                <input type="file" id="onix_file" name="onix_file" accept=".xml" required>
+            </div>
+
+            <div class="form-group">
+                <label for="epub_isbn">EPUB ISBN (13 digits):</label>
+                <input type="text" id="epub_isbn" name="epub_isbn" pattern="\d{13}" required>
+            </div>
+        </div>
+
+        <div class="form-section">
+            <h2>Role Selection</h2>
+            <div class="form-group">
+                <label for="role">Select Role:</label>
+                <select id="role" name="role" required>
+                    <option value="production">Production</option>
+                    <option value="publisher">Publisher</option>
+                </select>
+            </div>
+        </div>
+
+        <div id="publisher-fields" class="form-section" style="display: none;">
+            <h2>Publisher Information</h2>
+            <div class="form-group">
+                <label for="sender_name">Sender Name:</label>
+                <input type="text" id="sender_name" name="sender_name">
+            </div>
+
+            <div class="form-group">
+                <label for="contact_name">Contact Name:</label>
+                <input type="text" id="contact_name" name="contact_name">
+            </div>
+
+            <div class="form-group">
+                <label for="email">Email Address:</label>
+                <input type="email" id="email" name="email">
+            </div>
+
+            <div class="form-group">
+                <label for="product_composition">Product Composition:</label>
+                <select id="product_composition" name="product_composition">
+                    <option value="00">Single-item retail product</option>
+                    <!-- Add other options from VALID_PRODUCT_COMPOSITIONS -->
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="product_form">Product Form:</label>
+                <select id="product_form" name="product_form">
+                    <option value="EB">E-book</option>
+                    <!-- Add other options from VALID_PRODUCT_FORMS -->
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="language_code">Language Code (ISO 639-2):</label>
+                <input type="text" id="language_code" name="language_code" pattern="[a-z]{3}">
+            </div>
+
+            <div class="form-section">
+                <h3>Pricing Information</h3>
+                <div class="form-group">
+                    <label for="price_cad">Price (CAD):</label>
+                    <input type="number" id="price_cad" name="price_cad" step="0.01">
+                </div>
+
+                <div class="form-group">
+                    <label for="price_gbp">Price (GBP):</label>
+                    <input type="number" id="price_gbp" name="price_gbp" step="0.01">
+                </div>
+
+                <div class="form-group">
+                    <label for="price_usd">Price (USD):</label>
+                    <input type="number" id="price_usd" name="price_usd" step="0.01">
+                </div>
+            </div>
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">Generate ONIX</button>
+            <button type="button" class="btn btn-secondary" onclick="window.location.href='{{ url_for('help') }}'">Help</button>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById('role').addEventListener('change', function() {
+    const publisherFields = document.getElementById('publisher-fields');
+    const publisherInputs = publisherFields.getElementsByTagName('input');
+    const publisherSelects = publisherFields.getElementsByTagName('select');
+    
+    if (this.value === 'publisher') {
+        publisherFields.style.display = 'block';
+        for (let input of publisherInputs) {
+            input.required = true;
+        }
+        for (let select of publisherSelects) {
+            select.required = true;
+        }
+    } else {
+        publisherFields.style.display = 'none';
+        for (let input of publisherInputs) {
+            input.required = false;
+        }
+        for (let select of publisherSelects) {
+            select.required = false;
+        }
+    }
+});
+</script>
+{% endblock %}

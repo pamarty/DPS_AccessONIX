@@ -1,0 +1,307 @@
+/* General styles */
+body {
+    font-family: Arial, sans-serif;
+    line-height: 1.6;
+    margin: 0;
+    padding: 0;
+    background-color: #f5f5f5;
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+/* Header styles */
+header {
+    background-color: #fff;
+    padding: 1rem;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.logo {
+    max-width: 200px;
+}
+
+.logo img {
+    width: 100%;
+    height: auto;
+}
+
+/* Form styles */
+.form-section {
+    background-color: #fff;
+    padding: 20px;
+    margin-bottom: 20px;
+    border-radius: 4px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.form-group {
+    margin-bottom: 15px;
+}
+
+label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: bold;
+}
+
+input[type="text"],
+input[type="email"],
+input[type="number"],
+select {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    box-sizing: border-box;
+}
+
+input[type="file"] {
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    background-color: #fff;
+}
+
+/* Button styles */
+.btn {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+.btn-primary {
+    background-color: #007bff;
+    color: #fff;
+}
+
+.btn-secondary {
+    background-color: #6c757d;
+    color: #fff;
+}
+
+/* Alert styles */
+.alert {
+    padding: 15px;
+    margin-bottom: 20px;
+    border: 1px solid transparent;
+    border-radius: 4px;
+}
+
+.alert-success {
+    color: #155724;
+    background-color: #d4edda;
+    border-color: #c3e6cb;
+}
+
+.alert-error {
+    color: #721c24;
+    background-color: #f8d7da;
+    border-color: #f5c6cb;
+}
+
+/* Footer styles */
+footer {
+    text-align: center;
+    padding: 20px;
+    background-color: #fff;
+    border-top: 1px solid #ddd;
+    margin-top: 40px;
+}
+/* Additional styles to append to existing styles.css */
+
+/* Loading indicator */
+.spinner {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border: 3px solid rgba(255,255,255,.3);
+    border-radius: 50%;
+    border-top-color: #fff;
+    animation: spin 1s ease-in-out infinite;
+    margin-right: 10px;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* Help page styles */
+.help-container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.help-section {
+    background: #fff;
+    border-radius: 4px;
+    padding: 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.help-section h2 {
+    color: #333;
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #eee;
+}
+
+.help-section ul,
+.help-section ol {
+    margin-left: 20px;
+    margin-bottom: 15px;
+}
+
+.help-section li {
+    margin-bottom: 8px;
+}
+
+/* Error page styles */
+.error-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 60vh;
+    padding: 20px;
+}
+
+.error-box {
+    background: #fff;
+    padding: 30px;
+    border-radius: 4px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    text-align: center;
+    max-width: 500px;
+    width: 100%;
+}
+
+.error-message {
+    margin: 20px 0;
+    padding: 15px;
+    background: #f8d7da;
+    border: 1px solid #f5c6cb;
+    border-radius: 4px;
+    color: #721c24;
+}
+
+.error-actions {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+/* Form enhancements */
+.form-section {
+    transition: all 0.3s ease;
+}
+
+.form-group {
+    position: relative;
+}
+
+.form-group label {
+    transition: all 0.2s ease;
+}
+
+.form-group input:focus + label,
+.form-group select:focus + label {
+    color: #007bff;
+}
+
+.form-group input:invalid,
+.form-group select:invalid {
+    border-color: #dc3545;
+}
+
+.form-group input:valid,
+.form-group select:valid {
+    border-color: #28a745;
+}
+
+/* Responsive enhancements */
+@media (max-width: 768px) {
+    .form-section {
+        padding: 15px;
+    }
+    
+    .btn {
+        width: 100%;
+        margin-bottom: 10px;
+    }
+    
+    .error-actions {
+        flex-direction: column;
+    }
+    
+    .help-container {
+        padding: 10px;
+    }
+}
+
+/* Progress indicator */
+.progress-steps {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 30px;
+    position: relative;
+    max-width: 600px;
+    margin: 0 auto 30px;
+}
+
+.progress-step {
+    flex: 1;
+    text-align: center;
+    position: relative;
+    padding-top: 30px;
+}
+
+.progress-step::before {
+    content: '';
+    position: absolute;
+    top: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 20px;
+    height: 20px;
+    background: #fff;
+    border: 2px solid #007bff;
+    border-radius: 50%;
+    z-index: 2;
+}
+
+.progress-step::after {
+    content: '';
+    position: absolute;
+    top: 19px;
+    left: 0;
+    width: 100%;
+    height: 2px;
+    background: #007bff;
+    z-index: 1;
+}
+
+.progress-step:first-child::after {
+    left: 50%;
+    width: 50%;
+}
+
+.progress-step:last-child::after {
+    width: 50%;
+}
+
+.progress-step.active::before {
+    background: #007bff;
+}
+
+.progress-step.complete::before {
+    background: #28a745;
+    border-color: #28a745;
+}
