@@ -1,4 +1,3 @@
-```python
 import xml.etree.ElementTree as ET
 from lxml import etree
 import logging
