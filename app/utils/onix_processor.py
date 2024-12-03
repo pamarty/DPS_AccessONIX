@@ -39,13 +39,18 @@ def process_onix(epub_features, xml_content, epub_isbn, publisher_data=None):
         tree = etree.fromstring(xml_content, parser=parser)
         logger.info(f"XML parsed successfully. Root tag: {tree.tag}")
         
-        # Determine version
+        # Determine version and format
         original_version, is_reference = get_original_version(tree)
         logger.info(f"Original ONIX version: {original_version}, Reference format: {is_reference}")
 
-        # Create new root with correct namespace
-        xmlns = 'http://ns.editeur.org/onix/3.0/reference' if is_reference else None
-        new_root = etree.Element('ONIXMessage', nsmap={None: xmlns} if xmlns else None)
+        # Create new root
+        new_root = etree.Element('ONIXMessage')
+        if is_reference:
+            if original_version.startswith('3'):
+                new_root.set('xmlns', 'http://ns.editeur.org/onix/3.0/reference')
+            else:
+                new_root.set('xmlns', 'http://www.editeur.org/onix/2.1/reference')
+        
         new_root.set('release', '3.0')
 
         # Process header first
@@ -53,7 +58,6 @@ def process_onix(epub_features, xml_content, epub_isbn, publisher_data=None):
         logger.info("Header processed")
 
         # Process products
-        changes = []
         for product in tree.findall('.//Product'):
             new_product = process_product(
                 product, 
@@ -63,7 +67,11 @@ def process_onix(epub_features, xml_content, epub_isbn, publisher_data=None):
                 publisher_data
             )
             new_root.append(new_product)
-            changes.append("Product processed successfully")
+            logger.info("Product processed successfully")
+
+        # Register namespace if using reference format
+        if is_reference:
+            etree.register_namespace('', new_root.get('xmlns'))
 
         # Return processed XML
         return etree.tostring(
@@ -100,20 +108,19 @@ def process_header(root, original_version, publisher_data=None):
         sender_name = etree.SubElement(sender, 'SenderName')
         sender_name.text = "Default Company Name"
 
-    # Date/time
-    if original_version.startswith('3'):
-        sent_date_time = etree.SubElement(header, 'SentDateTime')
-        sent_date_time.text = datetime.now().strftime("%Y%m%dT%H%M%S")
-    else:
-        sent_date = etree.SubElement(header, 'SentDate')
-        sent_date.text = datetime.now().strftime("%Y%m%d")
+    # Always create SentDateTime for ONIX 3.0
+    sent_date_time = etree.SubElement(header, 'SentDateTime')
+    sent_date_time.text = datetime.now().strftime("%Y%m%dT%H%M%S")
 
+    # Add MessageNote
+    note_elem = etree.SubElement(header, 'MessageNote')
+    note_elem.text = f"This file was remediated to include accessibility information. Original ONIX version: {original_version}"
 def process_product(product, accessibility_features, epub_isbn, is_onix3, publisher_data=None):
     """Process ONIX product"""
     new_product = etree.Element('Product')
 
-    # Record Reference (mandatory)
-    record_ref = product.find('RecordReference')
+    # Process record reference
+    record_ref = product.find('.//RecordReference')
     if record_ref is not None:
         new_ref = etree.SubElement(new_product, 'RecordReference')
         new_ref.text = record_ref.text
@@ -121,60 +128,62 @@ def process_product(product, accessibility_features, epub_isbn, is_onix3, publis
         new_ref = etree.SubElement(new_product, 'RecordReference')
         new_ref.text = f"EPUB_{epub_isbn}"
 
-    # Notification Type (mandatory)
-    notif = etree.SubElement(new_product, 'NotificationType')
-    notif.text = '03'  # New, confirmed
-
-    # Product Identifiers
+    # Process identifiers
     process_identifiers(product, new_product, epub_isbn)
 
-    # Descriptive Detail
+    # Process descriptive detail section
     descriptive_detail = etree.SubElement(new_product, 'DescriptiveDetail')
-    process_descriptive_detail(product, descriptive_detail, accessibility_features, publisher_data)
+    process_descriptive_detail(product, descriptive_detail, accessibility_features, is_onix3, publisher_data)
 
-    # Collateral Detail
-    process_collateral_detail(product, new_product)
+    # Process collateral detail
+    collateral_detail = etree.SubElement(new_product, 'CollateralDetail')
+    process_collateral_detail(product, collateral_detail)
 
-    # Publishing Detail
-    process_publishing_detail(product, new_product)
+    # Process publishing detail
+    publishing_detail = etree.SubElement(new_product, 'PublishingDetail')
+    process_publishing_detail(product, publishing_detail)
 
-    # Product Supply
+    # Process product supply
     process_product_supply(product, new_product, publisher_data)
 
     return new_product
+
 def process_identifiers(product, new_product, epub_isbn):
     """Process product identifiers"""
+    # Handle default identifier
+    if not product.findall('.//ProductIdentifier'):
+        identifier = etree.SubElement(new_product, 'ProductIdentifier')
+        id_type = etree.SubElement(identifier, 'ProductIDType')
+        id_type.text = '15'  # ISBN-13
+        id_value = etree.SubElement(identifier, 'IDValue')
+        id_value.text = epub_isbn
+        return
+
+    # Process existing identifiers
     for identifier in product.findall('.//ProductIdentifier'):
         new_identifier = etree.SubElement(new_product, 'ProductIdentifier')
         id_type = identifier.find('ProductIDType')
         if id_type is not None:
             new_type = etree.SubElement(new_identifier, 'ProductIDType')
             new_type.text = id_type.text
-            
             id_value = etree.SubElement(new_identifier, 'IDValue')
+            
+            # Update ISBN if appropriate
             if id_type.text in ['03', '15']:  # ISBN-13
                 id_value.text = epub_isbn
             else:
                 old_value = identifier.find('IDValue')
                 id_value.text = old_value.text if old_value is not None else ''
 
-def process_descriptive_detail(product, descriptive_detail, accessibility_features, publisher_data):
+def process_descriptive_detail(product, descriptive_detail, accessibility_features, is_onix3, publisher_data):
     """Process descriptive detail section"""
     # Product composition
-    if publisher_data and publisher_data.get('product_composition'):
-        comp = etree.SubElement(descriptive_detail, 'ProductComposition')
-        comp.text = publisher_data['product_composition']
-    else:
-        comp = etree.SubElement(descriptive_detail, 'ProductComposition')
-        comp.text = '00'  # Single-item retail product
+    comp = etree.SubElement(descriptive_detail, 'ProductComposition')
+    comp.text = publisher_data.get('product_composition', '00')  # Single-item retail product
 
     # Product form
-    if publisher_data and publisher_data.get('product_form'):
-        form = etree.SubElement(descriptive_detail, 'ProductForm')
-        form.text = publisher_data['product_form']
-    else:
-        form = etree.SubElement(descriptive_detail, 'ProductForm')
-        form.text = 'EB'  # Digital download
+    form = etree.SubElement(descriptive_detail, 'ProductForm')
+    form.text = publisher_data.get('product_form', 'EB')  # Digital download
 
     # Product form detail
     form_detail = etree.SubElement(descriptive_detail, 'ProductFormDetail')
@@ -184,52 +193,46 @@ def process_descriptive_detail(product, descriptive_detail, accessibility_featur
     process_accessibility_features(descriptive_detail, accessibility_features)
 
     # Process title details
-    process_title_details(product, descriptive_detail)
+    if is_onix3:
+        process_title_details_onix3(product, descriptive_detail)
+    else:
+        process_title_details_onix2(product, descriptive_detail)
 
     # Process contributors
     process_contributors(product, descriptive_detail)
 
     # Process language
-    process_language(product, descriptive_detail)
-
-    # Process other elements
-    process_additional_details(product, descriptive_detail)
-
-def process_title_details(product, descriptive_detail):
-    """Process title information"""
-    for title in product.findall('.//Title'):
-        title_detail = etree.SubElement(descriptive_detail, 'TitleDetail')
-        title_type = title.find('TitleType')
-        
-        if title_type is not None:
-            new_type = etree.SubElement(title_detail, 'TitleType')
-            new_type.text = title_type.text
-        else:
-            new_type = etree.SubElement(title_detail, 'TitleType')
-            new_type.text = '01'  # Distinctive title
-        
-        title_element = etree.SubElement(title_detail, 'TitleElement')
-        level = etree.SubElement(title_element, 'TitleElementLevel')
-        level.text = '01'  # Product level
-        
-        title_text = title.find('TitleText')
-        if title_text is not None:
-            new_text = etree.SubElement(title_element, 'TitleText')
-            new_text.text = title_text.text
-        
-        subtitle = title.find('Subtitle')
-        if subtitle is not None:
-            new_subtitle = etree.SubElement(title_element, 'Subtitle')
-            new_subtitle.text = subtitle.text
+    process_language(product, descriptive_detail, publisher_data)
 
 def process_accessibility_features(descriptive_detail, accessibility_features):
     """Process accessibility features"""
-    logger.info("Adding accessibility features")
+    # Remove any existing accessibility features
+    for feature in descriptive_detail.findall('ProductFormFeature'):
+        if feature.find('ProductFormFeatureType') is not None and feature.find('ProductFormFeatureType').text == "09":
+            descriptive_detail.remove(feature)
+
+    insert_after = [
+        'ProductForm', 'ProductFormDetail', 'ProductFormDescription',
+        'ProductFormFeature', 'ProductPackaging', 'ProductFormDescription',
+        'NumberOfPieces', 'TradeCategory', 'ProductContentType', 'EpubType',
+        'EpubTypeVersion', 'EpubTypeDescription', 'EpubFormat', 'EpubFormatVersion',
+        'EpubFormatDescription', 'EpubSource', 'EpubSourceVersion',
+        'EpubSourceDescription', 'EpubTypeNote'
+    ]
+
+    # Find insert position
+    insert_position = 0
+    for tag in insert_after:
+        elements = descriptive_detail.findall(tag)
+        if elements:
+            insert_position = list(descriptive_detail).index(elements[-1]) + 1
+
+    # Add new accessibility features
     for code, is_present in accessibility_features.items():
         if is_present and code in CODELIST_196:
-            feature = etree.SubElement(descriptive_detail, 'ProductFormFeature')
+            feature = etree.Element('ProductFormFeature')
             feature_type = etree.SubElement(feature, 'ProductFormFeatureType')
-            feature_type.text = '09'  # Accessibility feature
+            feature_type.text = "09"
             
             feature_value = etree.SubElement(feature, 'ProductFormFeatureValue')
             feature_value.text = code
@@ -237,140 +240,120 @@ def process_accessibility_features(descriptive_detail, accessibility_features):
             feature_desc = etree.SubElement(feature, 'ProductFormFeatureDescription')
             feature_desc.text = CODELIST_196[code]
             
-            logger.debug(f"Added accessibility feature: {code} - {CODELIST_196[code]}")
+            descriptive_detail.insert(insert_position, feature)
+            insert_position += 1
+
+def process_title_details_onix3(product, descriptive_detail):
+    """Process title details for ONIX 3.0"""
+    title_detail = etree.SubElement(descriptive_detail, 'TitleDetail')
+    title_type = etree.SubElement(title_detail, 'TitleType')
+    title_type.text = '01'  # Distinctive title
+
+    title_element = etree.SubElement(title_detail, 'TitleElement')
+    level = etree.SubElement(title_element, 'TitleElementLevel')
+    level.text = '01'
+
+    # Get title text from TitleText or TitleStatement
+    title_text = product.find('.//TitleText')
+    if title_text is not None:
+        text_elem = etree.SubElement(title_element, 'TitleText')
+        text_elem.text = title_text.text
+
+    # Handle subtitle if present
+    subtitle = product.find('.//Subtitle')
+    if subtitle is not None:
+        subtitle_elem = etree.SubElement(title_element, 'Subtitle')
+        subtitle_elem.text = subtitle.text
+
+def process_title_details_onix2(product, descriptive_detail):
+    """Process title details from ONIX 2.1"""
+    for title in product.findall('.//Title'):
+        title_detail = etree.SubElement(descriptive_detail, 'TitleDetail')
+        title_type = etree.SubElement(title_detail, 'TitleType')
+        title_type.text = '01'  # Distinctive title
+
+        title_element = etree.SubElement(title_detail, 'TitleElement')
+        level = etree.SubElement(title_element, 'TitleElementLevel')
+        level.text = '01'
+
+        title_text = title.find('TitleText')
+        if title_text is not None:
+            text_elem = etree.SubElement(title_element, 'TitleText')
+            text_elem.text = title_text.text
+
+        subtitle = title.find('Subtitle')
+        if subtitle is not None:
+            subtitle_elem = etree.SubElement(title_element, 'Subtitle')
+            subtitle_elem.text = subtitle.text
 
 def process_contributors(product, descriptive_detail):
     """Process contributor information"""
     for contributor in product.findall('.//Contributor'):
         new_contributor = etree.SubElement(descriptive_detail, 'Contributor')
         
-        # Sequence number if present
-        sequence = contributor.find('SequenceNumber')
-        if sequence is not None:
-            new_seq = etree.SubElement(new_contributor, 'SequenceNumber')
-            new_seq.text = sequence.text
-        
-        # Contributor role
         role = contributor.find('ContributorRole')
         if role is not None:
-            new_role = etree.SubElement(new_contributor, 'ContributorRole')
-            new_role.text = role.text
-        
-        # Personal name
+            role_elem = etree.SubElement(new_contributor, 'ContributorRole')
+            role_elem.text = role.text
+
         name = contributor.find('PersonName')
         if name is not None:
-            new_name = etree.SubElement(new_contributor, 'PersonName')
-            new_name.text = name.text
+            name_elem = etree.SubElement(new_contributor, 'PersonName')
+            name_elem.text = name.text
 
-def process_language(product, descriptive_detail):
+def process_language(product, descriptive_detail, publisher_data):
     """Process language information"""
-    for language in product.findall('.//Language'):
-        new_language = etree.SubElement(descriptive_detail, 'Language')
-        
-        role = language.find('LanguageRole')
-        if role is not None:
-            new_role = etree.SubElement(new_language, 'LanguageRole')
-            new_role.text = role.text
-        
-        code = language.find('LanguageCode')
-        if code is not None:
-            new_code = etree.SubElement(new_language, 'LanguageCode')
-            new_code.text = code.text
-
-def process_additional_details(product, descriptive_detail):
-    """Process additional descriptive details"""
-    # Audiences
-    for audience in product.findall('.//Audience'):
-        new_audience = etree.SubElement(descriptive_detail, 'Audience')
-        
-        type_code = audience.find('AudienceCodeType')
-        if type_code is not None:
-            new_type = etree.SubElement(new_audience, 'AudienceCodeType')
-            new_type.text = type_code.text
-        
-        code_value = audience.find('AudienceCodeValue')
-        if code_value is not None:
-            new_value = etree.SubElement(new_audience, 'AudienceCodeValue')
-            new_value.text = code_value.text
+    language = etree.SubElement(descriptive_detail, 'Language')
+    role = etree.SubElement(language, 'LanguageRole')
+    role.text = '01'  # Language of text
+    
+    code = etree.SubElement(language, 'LanguageCode')
+    if publisher_data and publisher_data.get('language_code'):
+        code.text = publisher_data['language_code']
+    else:
+        old_code = product.find('.//LanguageCode')
+        code.text = old_code.text if old_code is not None else 'eng'
 
 def process_collateral_detail(product, new_product):
     """Process collateral detail section"""
     collateral_detail = etree.SubElement(new_product, 'CollateralDetail')
     
-    # Text content (from OtherText)
-    for text in product.findall('.//OtherText'):
+    # Convert OtherText to TextContent
+    for other_text in product.findall('.//OtherText'):
         text_content = etree.SubElement(collateral_detail, 'TextContent')
         
-        text_type = text.find('TextTypeCode')
-        if text_type is not None:
-            new_type = etree.SubElement(text_content, 'TextType')
-            new_type.text = text_type.text
+        # Convert TextTypeCode to TextType
+        type_code = other_text.find('TextTypeCode')
+        if type_code is not None:
+            text_type = etree.SubElement(text_content, 'TextType')
+            text_type.text = type_code.text
         
-        content_audience = etree.SubElement(text_content, 'ContentAudience')
-        content_audience.text = '00'  # Unrestricted
+        # Add mandatory ContentAudience
+        audience = etree.SubElement(text_content, 'ContentAudience')
+        audience.text = '00'
         
-        text_value = text.find('Text')
-        if text_value is not None:
-            new_text = etree.SubElement(text_content, 'Text')
-            new_text.text = text_value.text
-    
-    # Supporting resources (from MediaFile)
-    process_supporting_resources(product, collateral_detail)
-
-def process_supporting_resources(product, collateral_detail):
-    """Process supporting resources"""
-    for media in product.findall('.//MediaFile'):
-        resource = etree.SubElement(collateral_detail, 'SupportingResource')
-        
-        # Resource content type
-        content_type = etree.SubElement(resource, 'ResourceContentType')
-        media_type = media.find('MediaFileTypeCode')
-        content_type.text = media_type.text if media_type is not None else '01'
-        
-        # Resource mode
-        mode = etree.SubElement(resource, 'ResourceMode')
-        mode.text = '03'  # Image
-        
-        # Resource version
-        version = etree.SubElement(resource, 'ResourceVersion')
-        form = etree.SubElement(version, 'ResourceForm')
-        form.text = '02'  # Downloadable file
-        
-        link = media.find('MediaFileLink')
-        if link is not None:
-            resource_link = etree.SubElement(version, 'ResourceLink')
-            resource_link.text = link.text
+        # Convert Text content
+        text = other_text.find('Text')
+        if text is not None:
+            text_elem = etree.SubElement(text_content, 'Text')
+            text_elem.text = text.text
 
 def process_publishing_detail(product, new_product):
     """Process publishing detail section"""
     publishing_detail = etree.SubElement(new_product, 'PublishingDetail')
     
-    # Imprint
-    imprint = product.find('.//Imprint/ImprintName')
-    if imprint is not None:
-        new_imprint = etree.SubElement(publishing_detail, 'Imprint')
-        imprint_name = etree.SubElement(new_imprint, 'ImprintName')
-        imprint_name.text = imprint.text
-    
-    # Publisher
-    publisher = product.find('.//Publisher/PublisherName')
-    if publisher is not None:
-        new_publisher = etree.SubElement(publishing_detail, 'Publisher')
-        pub_name = etree.SubElement(new_publisher, 'PublisherName')
-        pub_name.text = publisher.text
-    
     # Publishing status
     status = product.find('.//PublishingStatus')
-    new_status = etree.SubElement(publishing_detail, 'PublishingStatus')
-    new_status.text = status.text if status is not None else '04'  # Active
+    status_elem = etree.SubElement(publishing_detail, 'PublishingStatus')
+    status_elem.text = status.text if status is not None else '04'
     
     # Publication date
     pub_date = product.find('.//PublicationDate')
     if pub_date is not None:
-        publishing_date = etree.SubElement(publishing_detail, 'PublishingDate')
-        date_role = etree.SubElement(publishing_date, 'PublishingDateRole')
-        date_role.text = '01'  # Nominal publication date
-        date = etree.SubElement(publishing_date, 'Date')
+        date_elem = etree.SubElement(publishing_detail, 'PublishingDate')
+        role = etree.SubElement(date_elem, 'PublishingDateRole')
+        role.text = '01'
+        date = etree.SubElement(date_elem, 'Date')
         date.text = pub_date.text
 
 def process_product_supply(product, new_product, publisher_data):
@@ -378,45 +361,33 @@ def process_product_supply(product, new_product, publisher_data):
     product_supply = etree.SubElement(new_product, 'ProductSupply')
     supply_detail = etree.SubElement(product_supply, 'SupplyDetail')
     
-    # Supplier
+    # Supplier information
     supplier = etree.SubElement(supply_detail, 'Supplier')
-    supplier_role = etree.SubElement(supplier, 'SupplierRole')
-    supplier_role.text = '01'  # Publisher
+    role = etree.SubElement(supplier, 'SupplierRole')
+    role.text = '01'  # Publisher
     
     if publisher_data and publisher_data.get('sender_name'):
-        supplier_name = etree.SubElement(supplier, 'SupplierName')
-        supplier_name.text = publisher_data['sender_name']
+        name = etree.SubElement(supplier, 'SupplierName')
+        name.text = publisher_data['sender_name']
     
-    # Availability
+    # Product availability
     availability = etree.SubElement(supply_detail, 'ProductAvailability')
     availability.text = '20'  # Available
     
-    # Process prices if provided
+    # Process prices
     if publisher_data and 'prices' in publisher_data:
-        process_prices(supply_detail, publisher_data['prices'])
-
-def process_prices(supply_detail, prices):
-    """Process price information"""
-    for currency, amount in prices.items():
-        if amount:
-            price = etree.SubElement(supply_detail, 'Price')
-            
-            price_type = etree.SubElement(price, 'PriceType')
-            price_type.text = '02'  # RRP including tax
-            
-            currency_code = etree.SubElement(price, 'CurrencyCode')
-            currency_code.text = currency.upper()
-            
-            price_amount = etree.SubElement(price, 'PriceAmount')
-            price_amount.text = str(Decimal(amount))
-
-            territory = etree.SubElement(price, 'Territory')
-            if currency.upper() == 'CAD':
-                countries = 'CA'
-            elif currency.upper() == 'GBP':
-                countries = 'GB'
-            elif currency.upper() == 'USD':
-                countries = 'US'
-            else:
-                countries = 'ROW'  # Rest of World
-            etree.SubElement(territory, 'CountriesIncluded').text = countries
+        for currency, amount in publisher_data['prices'].items():
+            if amount:
+                price = etree.SubElement(supply_detail, 'Price')
+                
+                # Price type
+                price_type = etree.SubElement(price, 'PriceType')
+                price_type.text = '02'  # RRP including tax
+                
+                # Currency
+                currency_elem = etree.SubElement(price, 'CurrencyCode')
+                currency_elem.text = currency.upper()
+                
+                # Amount
+                amount_elem = etree.SubElement(price, 'PriceAmount')
+                amount_elem.text = str(Decimal(amount))
