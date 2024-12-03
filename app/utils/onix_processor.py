@@ -1,3 +1,4 @@
+```python
 import xml.etree.ElementTree as ET
 from lxml import etree
 import logging
@@ -25,8 +26,6 @@ def process_onix(epub_features, xml_content, epub_isbn, publisher_data=None):
 
         # Create Header
         new_header = etree.SubElement(new_root, 'Header')
-
-        # Extract sender information from input
         sender = etree.SubElement(new_header, 'Sender')
         
         if publisher_data and publisher_data.get('sender_name'):
@@ -56,35 +55,19 @@ def process_onix(epub_features, xml_content, epub_isbn, publisher_data=None):
         message_note = root.xpath('.//*[local-name() = "MessageNote"]/text()')
         etree.SubElement(new_header, 'MessageNote').text = message_note[0] if message_note else "Converted to ONIX 3.0"
 
-        # Process products
-        for old_product in root.xpath('.//*[local-name() = "Product"]'):
-            new_product = etree.SubElement(new_root, "Product")
-            
-            # Record Reference
-            record_ref = old_product.xpath('.//*[local-name() = "RecordReference"]/text()')
-            etree.SubElement(new_product, 'RecordReference').text = record_ref[0] if record_ref else f"EPUB_{epub_isbn}"
-            
-            # Notification Type
-            etree.SubElement(new_product, 'NotificationType').text = '03'
-            
-            # Product Identifiers
-            process_identifiers(old_product, new_product, epub_isbn)
-            
-            # Descriptive Detail
-            descriptive_detail = etree.SubElement(new_product, 'DescriptiveDetail')
-            process_descriptive_detail(old_product, descriptive_detail, epub_features, publisher_data)
-            
-            # Collateral Detail
-            collateral_detail = etree.SubElement(new_product, 'CollateralDetail')
-            process_collateral_detail(old_product, collateral_detail)
-            
-            # Publishing Detail
-            publishing_detail = etree.SubElement(new_product, 'PublishingDetail')
-            process_publishing_detail(old_product, publishing_detail)
-            
-            # Product Supply
-            product_supply = etree.SubElement(new_product, 'ProductSupply')
-            process_product_supply(old_product, product_supply, publisher_data)
+        # Process the product(s)
+        if root.tag.endswith('Product'):
+            # If root is a Product element
+            process_single_product(root, new_root, epub_features, epub_isbn, publisher_data)
+        else:
+            # Look for Product elements
+            products = root.xpath('.//*[local-name() = "Product"]')
+            if products:
+                for old_product in products:
+                    process_single_product(old_product, new_root, epub_features, epub_isbn, publisher_data)
+            else:
+                # Create a new product if none found
+                create_new_product(new_root, epub_features, epub_isbn, publisher_data)
 
         # Return processed XML
         return etree.tostring(new_root, pretty_print=True, xml_declaration=True, encoding='utf-8')
@@ -94,36 +77,57 @@ def process_onix(epub_features, xml_content, epub_isbn, publisher_data=None):
         logger.error(traceback.format_exc())
         raise
 
-def process_identifiers(old_product, new_product, epub_isbn):
-    """Process product identifiers"""
-    for identifier in old_product.xpath('.//*[local-name() = "ProductIdentifier"]'):
-        new_identifier = etree.SubElement(new_product, 'ProductIdentifier')
-        
-        id_type = identifier.xpath('.//*[local-name() = "ProductIDType"]/text()')
-        if id_type:
-            etree.SubElement(new_identifier, 'ProductIDType').text = id_type[0]
-            
-            id_value = etree.SubElement(new_identifier, 'IDValue')
-            if id_type[0] in ["03", "15"]:  # ISBN-13
-                id_value.text = epub_isbn
-            else:
-                old_value = identifier.xpath('.//*[local-name() = "IDValue"]/text()')
-                id_value.text = old_value[0] if old_value else ''
+def process_single_product(old_product, new_root, epub_features, epub_isbn, publisher_data):
+    """Process a single product element"""
+    new_product = etree.SubElement(new_root, "Product")
+    
+    # Record Reference
+    record_ref = old_product.xpath('.//*[local-name() = "RecordReference"]/text()')
+    etree.SubElement(new_product, 'RecordReference').text = record_ref[0] if record_ref else f"EPUB_{epub_isbn}"
+    
+    # Notification Type
+    etree.SubElement(new_product, 'NotificationType').text = '03'
+    
+    # Process identifiers
+    process_identifiers(old_product, new_product, epub_isbn)
+    
+    # Descriptive Detail
+    descriptive_detail = etree.SubElement(new_product, 'DescriptiveDetail')
+    process_descriptive_detail(old_product, descriptive_detail, epub_features, publisher_data)
+    
+    # Collateral Detail
+    collateral_detail = etree.SubElement(new_product, 'CollateralDetail')
+    process_collateral_detail(old_product, collateral_detail)
+    
+    # Publishing Detail
+    publishing_detail = etree.SubElement(new_product, 'PublishingDetail')
+    process_publishing_detail(old_product, publishing_detail)
+    
+    # Product Supply
+    product_supply = etree.SubElement(new_product, 'ProductSupply')
+    process_product_supply(old_product, product_supply, publisher_data)
 
-def process_descriptive_detail(old_product, descriptive_detail, epub_features, publisher_data):
-    """Process descriptive detail section"""
-    # Product Composition
-    comp = etree.SubElement(descriptive_detail, 'ProductComposition')
-    comp.text = publisher_data.get('product_composition', '00')
-
+def create_new_product(new_root, epub_features, epub_isbn, publisher_data):
+    """Create a new product when none exists"""
+    new_product = etree.SubElement(new_root, "Product")
+    
+    # Basic product information
+    etree.SubElement(new_product, 'RecordReference').text = f"EPUB_{epub_isbn}"
+    etree.SubElement(new_product, 'NotificationType').text = '03'
+    
+    # Product Identifier
+    identifier = etree.SubElement(new_product, 'ProductIdentifier')
+    etree.SubElement(identifier, 'ProductIDType').text = '15'  # ISBN-13
+    etree.SubElement(identifier, 'IDValue').text = epub_isbn
+    
+    # Descriptive Detail
+    descriptive_detail = etree.SubElement(new_product, 'DescriptiveDetail')
+    
     # Product Form
-    form = etree.SubElement(descriptive_detail, 'ProductForm')
-    form.text = publisher_data.get('product_form', 'EB')
-
-    # Product Form Detail
-    form_detail = etree.SubElement(descriptive_detail, 'ProductFormDetail')
-    form_detail.text = 'E101'
-
+    etree.SubElement(descriptive_detail, 'ProductComposition').text = publisher_data.get('product_composition', '00')
+    etree.SubElement(descriptive_detail, 'ProductForm').text = publisher_data.get('product_form', 'EB')
+    etree.SubElement(descriptive_detail, 'ProductFormDetail').text = 'E101'
+    
     # Process accessibility features
     for code, is_present in epub_features.items():
         if is_present and code in CODELIST_196:
@@ -131,9 +135,97 @@ def process_descriptive_detail(old_product, descriptive_detail, epub_features, p
             etree.SubElement(feature, 'ProductFormFeatureType').text = "09"
             etree.SubElement(feature, 'ProductFormFeatureValue').text = code
             etree.SubElement(feature, 'ProductFormFeatureDescription').text = CODELIST_196[code]
+    
+    # Add minimum required elements
+    add_minimum_elements(new_product, publisher_data)
 
+def add_minimum_elements(product, publisher_data):
+    """Add minimum required elements to a product"""
+    desc_detail = product.find('DescriptiveDetail')
+    if desc_detail is not None:
+        # Add title
+        title_detail = etree.SubElement(desc_detail, 'TitleDetail')
+        etree.SubElement(title_detail, 'TitleType').text = '01'
+        title_element = etree.SubElement(title_detail, 'TitleElement')
+        etree.SubElement(title_element, 'TitleElementLevel').text = '01'
+        etree.SubElement(title_element, 'TitleText').text = "Title Not Available"
+        
+        # Add language
+        language = etree.SubElement(desc_detail, 'Language')
+        etree.SubElement(language, 'LanguageRole').text = '01'
+        etree.SubElement(language, 'LanguageCode').text = publisher_data.get('language_code', 'eng')
+    
+    # Add publishing detail
+    pub_detail = etree.SubElement(product, 'PublishingDetail')
+    etree.SubElement(pub_detail, 'PublishingStatus').text = '04'  # Active
+    
+    # Add product supply
+    prod_supply = etree.SubElement(product, 'ProductSupply')
+    supply_detail = etree.SubElement(prod_supply, 'SupplyDetail')
+    supplier = etree.SubElement(supply_detail, 'Supplier')
+    etree.SubElement(supplier, 'SupplierRole').text = '01'
+    etree.SubElement(supply_detail, 'ProductAvailability').text = '20'  # Available
+def process_identifiers(old_product, new_product, epub_isbn):
+    """Process product identifiers"""
+    found_isbn = False
+    
+    # Process existing identifiers
+    for identifier in old_product.xpath('.//*[local-name() = "ProductIdentifier"]'):
+        new_identifier = etree.SubElement(new_product, 'ProductIdentifier')
+        id_type = identifier.xpath('.//*[local-name() = "ProductIDType"]/text()')
+        if id_type:
+            etree.SubElement(new_identifier, 'ProductIDType').text = id_type[0]
+            id_value = etree.SubElement(new_identifier, 'IDValue')
+            if id_type[0] in ["03", "15"]:  # ISBN-13
+                id_value.text = epub_isbn
+                found_isbn = True
+            else:
+                old_value = identifier.xpath('.//*[local-name() = "IDValue"]/text()')
+                id_value.text = old_value[0] if old_value else ''
+    
+    # Add ISBN if not found
+    if not found_isbn:
+        new_identifier = etree.SubElement(new_product, 'ProductIdentifier')
+        etree.SubElement(new_identifier, 'ProductIDType').text = '15'
+        etree.SubElement(new_identifier, 'IDValue').text = epub_isbn
+
+def process_descriptive_detail(old_product, descriptive_detail, epub_features, publisher_data):
+    """Process descriptive detail section"""
+    # Product composition and form
+    etree.SubElement(descriptive_detail, 'ProductComposition').text = publisher_data.get('product_composition', '00')
+    etree.SubElement(descriptive_detail, 'ProductForm').text = publisher_data.get('product_form', 'EB')
+    etree.SubElement(descriptive_detail, 'ProductFormDetail').text = 'E101'
+    
+    # Accessibility features
+    for code, is_present in epub_features.items():
+        if is_present and code in CODELIST_196:
+            feature = etree.SubElement(descriptive_detail, 'ProductFormFeature')
+            etree.SubElement(feature, 'ProductFormFeatureType').text = "09"
+            etree.SubElement(feature, 'ProductFormFeatureValue').text = code
+            etree.SubElement(feature, 'ProductFormFeatureDescription').text = CODELIST_196[code]
+    
     # Process titles
-    for old_title in old_product.xpath('.//*[local-name() = "Title"]'):
+    process_titles(old_product, descriptive_detail)
+    
+    # Process contributors
+    process_contributors(old_product, descriptive_detail)
+    
+    # Process language
+    process_language(old_product, descriptive_detail, publisher_data)
+
+def process_titles(old_product, descriptive_detail):
+    """Process title information"""
+    titles = old_product.xpath('.//*[local-name() = "Title"]')
+    if not titles:
+        # Create default title if none exists
+        title_detail = etree.SubElement(descriptive_detail, 'TitleDetail')
+        etree.SubElement(title_detail, 'TitleType').text = '01'
+        title_element = etree.SubElement(title_detail, 'TitleElement')
+        etree.SubElement(title_element, 'TitleElementLevel').text = '01'
+        etree.SubElement(title_element, 'TitleText').text = 'Title Not Available'
+        return
+    
+    for old_title in titles:
         title_detail = etree.SubElement(descriptive_detail, 'TitleDetail')
         etree.SubElement(title_detail, 'TitleType').text = '01'
         
@@ -148,22 +240,45 @@ def process_descriptive_detail(old_product, descriptive_detail, epub_features, p
         if subtitle:
             etree.SubElement(title_element, 'Subtitle').text = subtitle[0]
 
-    # Process contributors
+def process_contributors(old_product, descriptive_detail):
+    """Process contributor information"""
     for old_contributor in old_product.xpath('.//*[local-name() = "Contributor"]'):
         contributor = etree.SubElement(descriptive_detail, 'Contributor')
         
+        # Contributor role
         role = old_contributor.xpath('.//*[local-name() = "ContributorRole"]/text()')
         if role:
             etree.SubElement(contributor, 'ContributorRole').text = role[0]
         
-        name = old_contributor.xpath('.//*[local-name() = "PersonName"]/text()')
-        if name:
-            etree.SubElement(contributor, 'PersonName').text = name[0]
+        # Person name variants
+        for name_type in ['PersonName', 'PersonNameInverted', 'CorporateName']:
+            name = old_contributor.xpath(f'.//*[local-name() = "{name_type}"]/text()')
+            if name:
+                etree.SubElement(contributor, name_type).text = name[0]
+        
+        # Biographical note
+        bio = old_contributor.xpath('.//*[local-name() = "BiographicalNote"]/text()')
+        if bio:
+            etree.SubElement(contributor, 'BiographicalNote').text = bio[0]
 
-    # Language
-    language = etree.SubElement(descriptive_detail, 'Language')
-    etree.SubElement(language, 'LanguageRole').text = '01'
-    etree.SubElement(language, 'LanguageCode').text = publisher_data.get('language_code', 'eng')
+def process_language(old_product, descriptive_detail, publisher_data):
+    """Process language information"""
+    languages = old_product.xpath('.//*[local-name() = "Language"]')
+    if not languages:
+        # Create default language if none exists
+        language = etree.SubElement(descriptive_detail, 'Language')
+        etree.SubElement(language, 'LanguageRole').text = '01'
+        etree.SubElement(language, 'LanguageCode').text = publisher_data.get('language_code', 'eng')
+        return
+    
+    for old_language in languages:
+        language = etree.SubElement(descriptive_detail, 'Language')
+        
+        role = old_language.xpath('.//*[local-name() = "LanguageRole"]/text()')
+        etree.SubElement(language, 'LanguageRole').text = role[0] if role else '01'
+        
+        code = old_language.xpath('.//*[local-name() = "LanguageCode"]/text()')
+        etree.SubElement(language, 'LanguageCode').text = code[0] if code else publisher_data.get('language_code', 'eng')
 
 def process_collateral_detail(old_product, collateral_detail):
     """Process collateral detail section"""
@@ -178,9 +293,18 @@ def process_collateral_detail(old_product, collateral_detail):
         
         text = old_text.xpath('.//*[local-name() = "Text"]/text()')
         if text:
-            etree.SubElement(text_content, 'Text').text = text[0]
-
+            text_elem = etree.SubElement(text_content, 'Text')
+            text_elem.text = text[0]
+            
+            text_format = old_text.xpath('.//*[local-name() = "TextFormat"]/text()')
+            if text_format:
+                text_elem.set('textformat', text_format[0].lower())
+    
     # Convert MediaFile to SupportingResource
+    process_supporting_resources(old_product, collateral_detail)
+
+def process_supporting_resources(old_product, collateral_detail):
+    """Process supporting resources"""
     for old_media in old_product.xpath('.//*[local-name() = "MediaFile"]'):
         resource = etree.SubElement(collateral_detail, 'SupportingResource')
         
@@ -189,37 +313,37 @@ def process_collateral_detail(old_product, collateral_detail):
         
         etree.SubElement(resource, 'ResourceMode').text = '03'
         
-        version = etree.SubElement(resource, 'ResourceVersion')
-        etree.SubElement(version, 'ResourceForm').text = '02'
+        resource_version = etree.SubElement(resource, 'ResourceVersion')
+        etree.SubElement(resource_version, 'ResourceForm').text = '02'
         
         link = old_media.xpath('.//*[local-name() = "MediaFileLink"]/text()')
         if link:
-            etree.SubElement(version, 'ResourceLink').text = link[0]
+            etree.SubElement(resource_version, 'ResourceLink').text = link[0]
 
 def process_publishing_detail(old_product, publishing_detail):
     """Process publishing detail section"""
     # Imprint
-    imprint_name = old_product.xpath('.//*[local-name() = "ImprintName"]/text()')
-    if imprint_name:
-        imprint = etree.SubElement(publishing_detail, 'Imprint')
-        etree.SubElement(imprint, 'ImprintName').text = imprint_name[0]
+    imprint = old_product.xpath('.//*[local-name() = "ImprintName"]/text()')
+    if imprint:
+        imprint_detail = etree.SubElement(publishing_detail, 'Imprint')
+        etree.SubElement(imprint_detail, 'ImprintName').text = imprint[0]
     
     # Publisher
-    publisher_name = old_product.xpath('.//*[local-name() = "PublisherName"]/text()')
-    if publisher_name:
-        publisher = etree.SubElement(publishing_detail, 'Publisher')
-        etree.SubElement(publisher, 'PublisherName').text = publisher_name[0]
+    publisher = old_product.xpath('.//*[local-name() = "PublisherName"]/text()')
+    if publisher:
+        publisher_detail = etree.SubElement(publishing_detail, 'Publisher')
+        etree.SubElement(publisher_detail, 'PublisherName').text = publisher[0]
     
-    # Publishing Status
+    # Publishing status
     status = old_product.xpath('.//*[local-name() = "PublishingStatus"]/text()')
     etree.SubElement(publishing_detail, 'PublishingStatus').text = status[0] if status else '04'
     
-    # Publication Date
+    # Publication date
     pub_date = old_product.xpath('.//*[local-name() = "PublicationDate"]/text()')
     if pub_date:
-        pub_date_elem = etree.SubElement(publishing_detail, 'PublishingDate')
-        etree.SubElement(pub_date_elem, 'PublishingDateRole').text = '01'
-        etree.SubElement(pub_date_elem, 'Date').text = pub_date[0]
+        publishing_date = etree.SubElement(publishing_detail, 'PublishingDate')
+        etree.SubElement(publishing_date, 'PublishingDateRole').text = '01'
+        etree.SubElement(publishing_date, 'Date').text = pub_date[0]
 
 def process_product_supply(old_product, product_supply, publisher_data):
     """Process product supply section"""
@@ -231,8 +355,9 @@ def process_product_supply(old_product, product_supply, publisher_data):
     if publisher_data and publisher_data.get('sender_name'):
         etree.SubElement(supplier, 'SupplierName').text = publisher_data['sender_name']
     
-    # Product Availability
-    etree.SubElement(supply_detail, 'ProductAvailability').text = '20'
+    # Product availability
+    availability = old_product.xpath('.//*[local-name() = "ProductAvailability"]/text()')
+    etree.SubElement(supply_detail, 'ProductAvailability').text = availability[0] if availability else '20'
     
     # Process prices
     if publisher_data and 'prices' in publisher_data:
@@ -242,243 +367,3 @@ def process_product_supply(old_product, product_supply, publisher_data):
                 etree.SubElement(price, 'PriceType').text = '02'
                 etree.SubElement(price, 'CurrencyCode').text = currency.upper()
                 etree.SubElement(price, 'PriceAmount').text = str(Decimal(amount))
-                # Media file type mapping
-MEDIA_FILE_TYPE_MAPPING = {
-    '04': '01',  # Front cover image
-    '05': '02',  # Back cover image
-    '01': '03',  # Product image
-    '02': '04',  # Author photo
-    '03': '05',  # Logo
-}
-
-# Media file format mapping
-MEDIA_FILE_FORMAT_MAPPING = {
-    '02': '03',  # GIF maps to Image
-    '03': '03',  # JPEG maps to Image
-    '04': '04',  # PDF
-    '05': '01',  # XML
-}
-
-# ONIX code mappings
-PRODUCT_FORM_FEATURE_VALUE_MAPPING = {
-    '10': '12',  # Accessible DRM
-    '11': '14',  # Table of contents navigation
-    '13': '17',  # Single logical reading order
-    '19': '07',  # Print-equivalent page numbering
-    '22': '20',  # Language tagging
-    '24': '22',  # Dyslexia readability
-    '26': '24',  # High contrast
-    '29': '27',  # Navigation via structure
-    '30': '28',  # ARIA roles
-    '32': '30',  # Landmarks
-    '34': '31',  # Reading without sight
-    '36': '34',  # Text reflowable
-    '52': '31',  # Reading without sight
-}
-
-# Accessibility compliance mappings
-ACCESSIBILITY_COMPLIANCE_MAPPING = {
-    '2': '94',   # EPUB Accessibility 1.0 A
-    '3': '95',   # EPUB Accessibility 1.0 AA
-    '4': '96',   # EPUB Accessibility 1.1
-    '80': 'A01', # WCAG 2.0
-    '81': 'A02', # WCAG 2.1
-    '84': 'B201', # WCAG A
-    '85': 'B202', # WCAG AA
-}
-
-def transform_title(old_title):
-    """Transform Title element to TitleDetail structure"""
-    title_detail = etree.Element('TitleDetail')
-    title_type = old_title.find('TitleType')
-    
-    if title_type is not None:
-        type_elem = etree.SubElement(title_detail, 'TitleType')
-        type_elem.text = title_type.text
-    else:
-        type_elem = etree.SubElement(title_detail, 'TitleType')
-        type_elem.text = '01'
-
-    title_element = etree.SubElement(title_detail, 'TitleElement')
-    level = etree.SubElement(title_element, 'TitleElementLevel')
-    level.text = '01'
-
-    title_text = old_title.find('TitleText')
-    if title_text is not None:
-        text_elem = etree.SubElement(title_element, 'TitleText')
-        text_elem.text = title_text.text
-
-    subtitle = old_title.find('Subtitle')
-    if subtitle is not None:
-        subtitle_elem = etree.SubElement(title_element, 'Subtitle')
-        subtitle_elem.text = subtitle.text
-
-    return title_detail
-
-def transform_contributor(old_contributor):
-    """Transform Contributor element"""
-    new_contributor = etree.Element('Contributor')
-    
-    role = old_contributor.find('ContributorRole')
-    if role is not None:
-        role_elem = etree.SubElement(new_contributor, 'ContributorRole')
-        role_elem.text = role.text
-
-    for name_type in ['PersonName', 'PersonNameInverted', 'CorporateName']:
-        name = old_contributor.find(name_type)
-        if name is not None:
-            name_elem = etree.SubElement(new_contributor, name_type)
-            name_elem.text = name.text
-
-    # Add biographical note if present
-    bio = old_contributor.find('BiographicalNote')
-    if bio is not None:
-        bio_elem = etree.SubElement(new_contributor, 'BiographicalNote')
-        bio_elem.text = bio.text
-
-    return new_contributor
-
-def transform_subject(old_subject):
-    """Transform Subject element"""
-    new_subject = etree.Element('Subject')
-    
-    scheme = old_subject.find('SubjectSchemeIdentifier')
-    if scheme is not None:
-        scheme_elem = etree.SubElement(new_subject, 'SubjectSchemeIdentifier')
-        scheme_elem.text = scheme.text
-
-    code = old_subject.find('SubjectCode')
-    if code is not None:
-        code_elem = etree.SubElement(new_subject, 'SubjectCode')
-        code_elem.text = code.text
-
-    heading = old_subject.find('SubjectHeadingText')
-    if heading is not None:
-        heading_elem = etree.SubElement(new_subject, 'SubjectHeadingText')
-        heading_elem.text = heading.text
-
-    return new_subject
-
-def transform_text_content(old_text):
-    """Transform OtherText to TextContent"""
-    text_content = etree.Element('TextContent')
-    
-    type_code = old_text.find('TextTypeCode')
-    text_type = etree.SubElement(text_content, 'TextType')
-    text_type.text = type_code.text if type_code is not None else '03'
-    
-    audience = etree.SubElement(text_content, 'ContentAudience')
-    audience.text = '00'
-    
-    text = old_text.find('Text')
-    if text is not None:
-        text_elem = etree.SubElement(text_content, 'Text')
-        text_elem.text = text.text
-        
-        format_code = old_text.find('TextFormat')
-        if format_code is not None:
-            text_elem.set('textformat', format_code.text.lower())
-
-    return text_content
-
-def transform_supporting_resource(old_media):
-    """Transform MediaFile to SupportingResource"""
-    resource = etree.Element('SupportingResource')
-    
-    # Content type
-    type_code = old_media.find('MediaFileTypeCode')
-    content_type = etree.SubElement(resource, 'ResourceContentType')
-    content_type.text = MEDIA_FILE_TYPE_MAPPING.get(
-        type_code.text if type_code is not None else '01', 
-        '01'
-    )
-    
-    # Resource mode
-    format_code = old_media.find('MediaFileFormatCode')
-    mode = etree.SubElement(resource, 'ResourceMode')
-    mode.text = MEDIA_FILE_FORMAT_MAPPING.get(
-        format_code.text if format_code is not None else '03',
-        '03'
-    )
-    
-    # Version information
-    version = etree.SubElement(resource, 'ResourceVersion')
-    form = etree.SubElement(version, 'ResourceForm')
-    form.text = '02'
-    
-    link = old_media.find('MediaFileLink')
-    if link is not None:
-        resource_link = etree.SubElement(version, 'ResourceLink')
-        resource_link.text = link.text
-
-    return resource
-
-def transform_price(old_price):
-    """Transform Price element"""
-    new_price = etree.Element('Price')
-    
-    type_code = old_price.find('PriceTypeCode')
-    if type_code is not None:
-        type_elem = etree.SubElement(new_price, 'PriceType')
-        type_elem.text = type_code.text
-    
-    amount = old_price.find('PriceAmount')
-    if amount is not None:
-        amount_elem = etree.SubElement(new_price, 'PriceAmount')
-        amount_elem.text = amount.text
-    
-    currency = old_price.find('CurrencyCode')
-    if currency is not None:
-        currency_elem = etree.SubElement(new_price, 'CurrencyCode')
-        currency_elem.text = currency.text
-
-    return new_price
-
-def format_date(date_string):
-    """Format date to ONIX 3.0 format"""
-    try:
-        formats = [
-            "%Y%m%d",
-            "%Y-%m-%d",
-            "%d/%m/%Y",
-            "%m/%d/%Y",
-            "%d-%m-%Y",
-            "%m-%d-%Y"
-        ]
-        
-        for fmt in formats:
-            try:
-                date_obj = datetime.strptime(date_string, fmt)
-                return date_obj.strftime("%Y%m%d")
-            except ValueError:
-                continue
-        
-        raise ValueError(f"Unable to parse date: {date_string}")
-    
-    except Exception as e:
-        logger.error(f"Error formatting date {date_string}: {str(e)}")
-        return date_string
-
-def clean_text(text):
-    """Clean and normalize text content"""
-    if text is None:
-        return None
-    return ' '.join(text.split())
-
-def validate_currency_code(code):
-    """Validate currency code"""
-    valid_codes = {'USD', 'CAD', 'GBP', 'EUR', 'AUD', 'NZD'}
-    return code.upper() if code.upper() in valid_codes else None
-
-def validate_language_code(code):
-    """Validate language code"""
-    if code and len(code) == 3 and code.isalpha():
-        return code.lower()
-    return None
-
-def get_element_text(element, xpath, default=None):
-    """Safely get element text using xpath"""
-    result = element.xpath(xpath)
-    return result[0] if result else default
-
-# End of file
