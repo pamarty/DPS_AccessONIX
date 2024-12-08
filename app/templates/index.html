@@ -82,29 +82,18 @@
             </div>
 
             <div class="form-group">
-                <label for="language_code">Language Code:</label>
-                <select id="language_code" name="language_code" required>
-                    <option value="">Select a language</option>
-                    <option value="eng">English</option>
-                    <option value="fra">French</option>
-                    <option value="spa">Spanish</option>
-                    <option value="deu">German</option>
-                    <option value="ita">Italian</option>
-                    <option value="por">Portuguese</option>
-                    <option value="rus">Russian</option>
-                    <option value="chi">Chinese</option>
-                    <option value="jpn">Japanese</option>
-                    <option value="kor">Korean</option>
-                    <option value="ara">Arabic</option>
-                    <option value="hin">Hindi</option>
-                    <option value="ben">Bengali</option>
-                    <option value="nld">Dutch</option>
-                    <option value="swe">Swedish</option>
-                    <option value="dan">Danish</option>
-                    <option value="nor">Norwegian</option>
-                    <option value="fin">Finnish</option>
-                    <option value="pol">Polish</option>
-                    <option value="tur">Turkish</option>
+                <label for="language_code">Language Code (ISO 639-2):</label>
+                <select id="language_code" name="language_code">
+                    <option value="eng">English (eng)</option>
+                    <option value="fre">French (fre)</option>
+                    <option value="spa">Spanish (spa)</option>
+                    <option value="ger">German (ger)</option>
+                    <option value="ita">Italian (ita)</option>
+                    <option value="por">Portuguese (por)</option>
+                    <option value="rus">Russian (rus)</option>
+                    <option value="chi">Chinese (chi)</option>
+                    <option value="jpn">Japanese (jpn)</option>
+                    <option value="kor">Korean (kor)</option>
                 </select>
             </div>
 
@@ -112,17 +101,17 @@
                 <h3>Pricing Information</h3>
                 <div class="form-group">
                     <label for="price_cad">Price (CAD):</label>
-                    <input type="number" id="price_cad" name="price_cad" step="0.01" min="0">
+                    <input type="text" id="price_cad" name="price_cad" placeholder="0.00" pattern="^\d*\.?\d{0,2}$">
                 </div>
 
                 <div class="form-group">
                     <label for="price_gbp">Price (GBP):</label>
-                    <input type="number" id="price_gbp" name="price_gbp" step="0.01" min="0">
+                    <input type="text" id="price_gbp" name="price_gbp" placeholder="0.00" pattern="^\d*\.?\d{0,2}$">
                 </div>
 
                 <div class="form-group">
                     <label for="price_usd">Price (USD):</label>
-                    <input type="number" id="price_usd" name="price_usd" step="0.01" min="0">
+                    <input type="text" id="price_usd" name="price_usd" placeholder="0.00" pattern="^\d*\.?\d{0,2}$">
                 </div>
             </div>
         </div>
