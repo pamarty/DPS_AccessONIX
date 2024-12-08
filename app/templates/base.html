@@ -7,6 +7,17 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
 </head>
 <body>
+    <header>
+        <div class="header">
+            <div class="logo-container">
+                <a href="https://www.deslibris.pub" target="_blank">
+                    <img src="{{ url_for('static', filename='images/dpslogo.png') }}" alt="DesLibris Publishing Solutions Logo" class="logo">
+                </a>
+            </div>
+            <h1 class="title">AccessONIX</h1>
+        </div>
+    </header>
+
     <main>
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
@@ -20,7 +31,7 @@
     </main>
 
     <footer>
-        <p>&copy; {{ current_year }} desLibris Publishing Solutions</p>
+        <p>&copy; desLibris Publishing Solutions</p>
     </footer>
 
     <script src="{{ url_for('static', filename='js/main.js') }}"></script>
