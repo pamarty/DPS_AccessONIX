@@ -2,6 +2,10 @@
 import logging
 from lxml import etree
 from ..onix_constants import DEFAULT_NOTIFICATION_TYPE
+from .descriptive import process_descriptive_detail
+from .collateral import process_collateral_detail
+from .publishing import process_publishing_detail
+from .supply import process_product_supply
 
 logger = logging.getLogger(__name__)
 

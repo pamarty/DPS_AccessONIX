@@ -3,15 +3,15 @@ import logging
 import traceback
 from lxml import etree
 from datetime import datetime
-from .onix_constants import ONIX_30_NS, NSMAP, DEFAULT_NOTIFICATION_TYPE
-from .onix_utils import format_date, clean_text, validate_price, get_element_text
-from .epub_analyzer import CODELIST_196
-from .processors.header import process_header
-from .processors.product import process_product
-from .processors.descriptive import process_descriptive_detail
-from .processors.collateral import process_collateral_detail
-from .processors.publishing import process_publishing_detail
-from .processors.supply import process_product_supply
+from .onix_constants import ONIX_30_NS, NSMAP
+from .processors import (
+    process_header,
+    process_product,
+    process_descriptive_detail,
+    process_collateral_detail,
+    process_publishing_detail,
+    process_product_supply
+)
 
 logger = logging.getLogger(__name__)
 
