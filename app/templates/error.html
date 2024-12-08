@@ -3,15 +3,26 @@
 {% block title %}AccessONIX - Error{% endblock %}
 
 {% block content %}
-<div class="error-container">
-    <div class="error-box">
-        <h1>Error</h1>
-        <div class="error-message">
-            {{ error }}
+<div class="container">
+    <div class="header">
+        <div class="logo-container">
+            <a href="https://www.deslibris.pub" target="_blank">
+                <img src="{{ url_for('static', filename='images/dpslogo.png') }}" alt="DPS Logo" class="logo">
+            </a>
         </div>
-        <div class="error-actions">
-            <a href="{{ url_for('index') }}" class="btn btn-primary">Return to Home</a>
-            <a href="{{ url_for('help') }}" class="btn btn-secondary">View Help</a>
+        <h1 class="title">AccessONIX</h1>
+    </div>
+
+    <div class="error-container">
+        <div class="error-box">
+            <h2>Error</h2>
+            <div class="error-message">
+                {{ error }}
+            </div>
+            <div class="error-actions">
+                <a href="{{ url_for('index') }}" class="btn btn-primary">Return to Home</a>
+                <a href="{{ url_for('help') }}" class="btn btn-secondary">View Help</a>
+            </div>
         </div>
     </div>
 </div>

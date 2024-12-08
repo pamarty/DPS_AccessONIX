@@ -4,15 +4,6 @@
 
 {% block content %}
 <div class="container">
-    <div class="header">
-        <div class="logo-container">
-            <a href="https://www.deslibris.pub" target="_blank">
-                <img src="{{ url_for('static', filename='images/dpslogo.png') }}" alt="DPS Logo" class="logo">
-            </a>
-        </div>
-        <h1 class="title">AccessONIX</h1>
-    </div>
-
     <form id="onixForm" method="POST" action="{{ url_for('process') }}" enctype="multipart/form-data">
         <div class="form-section">
             <h2>File Upload</h2>
@@ -47,17 +38,17 @@
             <h2>Enhanced Information</h2>
             <div class="form-group">
                 <label for="sender_name">Sender Name:</label>
-                <input type="text" id="sender_name" name="sender_name">
+                <input type="text" id="sender_name" name="sender_name" pattern="[a-zA-Z0-9\s\-\'\.]+">
             </div>
 
             <div class="form-group">
                 <label for="contact_name">Contact Name:</label>
-                <input type="text" id="contact_name" name="contact_name">
+                <input type="text" id="contact_name" name="contact_name" pattern="[a-zA-Z0-9\s\-\'\.]+">
             </div>
 
             <div class="form-group">
                 <label for="email">Email Address:</label>
-                <input type="email" id="email" name="email" pattern="[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$">
+                <input type="email" id="email" name="email" pattern="[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$">
                 <small class="form-text text-muted">Please enter a valid email address</small>
             </div>
 
@@ -91,8 +82,30 @@
             </div>
 
             <div class="form-group">
-                <label for="language_code">Language Code (ISO 639-2):</label>
-                <input type="text" id="language_code" name="language_code" pattern="[a-z]{3}">
+                <label for="language_code">Language Code:</label>
+                <select id="language_code" name="language_code" required>
+                    <option value="">Select a language</option>
+                    <option value="eng">English</option>
+                    <option value="fra">French</option>
+                    <option value="spa">Spanish</option>
+                    <option value="deu">German</option>
+                    <option value="ita">Italian</option>
+                    <option value="por">Portuguese</option>
+                    <option value="rus">Russian</option>
+                    <option value="chi">Chinese</option>
+                    <option value="jpn">Japanese</option>
+                    <option value="kor">Korean</option>
+                    <option value="ara">Arabic</option>
+                    <option value="hin">Hindi</option>
+                    <option value="ben">Bengali</option>
+                    <option value="nld">Dutch</option>
+                    <option value="swe">Swedish</option>
+                    <option value="dan">Danish</option>
+                    <option value="nor">Norwegian</option>
+                    <option value="fin">Finnish</option>
+                    <option value="pol">Polish</option>
+                    <option value="tur">Turkish</option>
+                </select>
             </div>
 
             <div class="form-section">
