@@ -13,7 +13,6 @@ logger = logging.getLogger(__name__)
 ONIX_30_NS = "http://ns.editeur.org/onix/3.0/reference"
 NSMAP = {None: ONIX_30_NS}
 
-# Utility Functions
 def format_date(date_string):
     """Format date string to YYYYMMDD"""
     try:
@@ -36,7 +35,6 @@ def clean_text(text):
     """Clean and format text content"""
     if not text:
         return ""
-    # Remove any invalid XML characters
     text = re.sub(r'[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]', '', str(text))
     return text.strip()
 
@@ -115,11 +113,12 @@ def process_onix(epub_features, xml_content, epub_isbn, publisher_data=None):
         logger.error(f"Error processing ONIX: {str(e)}")
         logger.error(traceback.format_exc())
         raise
+
 def process_header(root, new_root, original_version):
     """Process header elements"""
     header = etree.SubElement(new_root, 'Header')
     
-    # Sender info (required first)
+    # Sender info
     sender = etree.SubElement(header, 'Sender')
     from_company = root.xpath('.//*[local-name() = "FromCompany"]/text()')
     if from_company:
@@ -140,11 +139,9 @@ def process_header(root, new_root, original_version):
         email_elem = etree.SubElement(sender, 'EmailAddress')
         email_elem.text = email[0]
 
-    # Always use SentDateTime for ONIX 3.0
     sent_date_time = etree.SubElement(header, 'SentDateTime')
     sent_date_time.text = datetime.now().strftime("%Y%m%dT%H%M%S")
 
-    # MessageNote with original version info
     message_note = root.xpath('.//*[local-name() = "MessageNote"]/text()')
     note_elem = etree.SubElement(header, 'MessageNote')
     note_elem.text = message_note[0] if message_note else f"This file was remediated to include accessibility information. Original ONIX version: {original_version}"
@@ -163,14 +160,12 @@ def process_product(old_product, new_root, epub_features, epub_isbn):
     notify_type = old_product.xpath('.//*[local-name() = "NotificationType"]/text()')
     notify_element.text = notify_type[0] if notify_type else '03'
 
-    # Product Identifiers
+    # Process main sections
     process_identifiers(new_product, old_product, epub_isbn)
-
-    # Process main sections in correct order
     descriptive_detail = process_descriptive_detail(new_product, old_product, epub_features)
     collateral_detail = process_collateral_detail(new_product, old_product)
     publishing_detail = process_publishing_detail(new_product, old_product)
-    product_supply = process_product_supply(new_product, old_product)
+    process_product_supply(new_product, old_product)
 
 def process_identifiers(new_product, old_product, epub_isbn):
     """Process product identifiers"""
@@ -262,8 +257,9 @@ def process_titles(descriptive_detail, old_product):
             subtitle = old_title.xpath('.//*[local-name() = "Subtitle"]/text()')
             if subtitle:
                 etree.SubElement(title_element, 'Subtitle').text = subtitle[0]
+
 def process_contributors(descriptive_detail, old_product):
-    """Process contributor information with correct element ordering"""
+    """Process contributor information"""
     for old_contributor in old_product.xpath('.//*[local-name() = "Contributor"]'):
         new_contributor = etree.SubElement(descriptive_detail, 'Contributor')
         
@@ -315,32 +311,28 @@ def process_language(descriptive_detail, old_product):
         etree.SubElement(language, 'LanguageCode').text = lang_code[0] if lang_code else 'eng'
 
 def process_subjects(descriptive_detail, old_product):
-    """Process subject information with required elements"""
+    """Process subject information"""
     for old_subject in old_product.xpath('.//*[local-name() = "Subject"]'):
         scheme = old_subject.xpath('.//*[local-name() = "SubjectSchemeIdentifier"]/text()')
         code = old_subject.xpath('.//*[local-name() = "SubjectCode"]/text()')
         heading = old_subject.xpath('.//*[local-name() = "SubjectHeadingText"]/text()')
         
-        # Only create Subject if we have required elements
         if scheme and (code or heading):
             new_subject = etree.SubElement(descriptive_detail, 'Subject')
             etree.SubElement(new_subject, 'SubjectSchemeIdentifier').text = scheme[0]
             
-            # Add SubjectSchemeName if present
             scheme_name = old_subject.xpath('.//*[local-name() = "SubjectSchemeName"]/text()')
             if scheme_name:
                 etree.SubElement(new_subject, 'SubjectSchemeName').text = scheme_name[0]
             
-            # Add SubjectCode if present
             if code:
                 etree.SubElement(new_subject, 'SubjectCode').text = code[0]
             
-            # Add SubjectHeadingText if present
             if heading:
                 etree.SubElement(new_subject, 'SubjectHeadingText').text = heading[0]
 
 def process_audience(descriptive_detail, old_product):
-    """Process audience information with required elements"""
+    """Process audience information"""
     audience_code = old_product.xpath('.//*[local-name() = "AudienceCode"]/text()')
     if audience_code:
         audience = etree.SubElement(descriptive_detail, 'Audience')
@@ -348,16 +340,14 @@ def process_audience(descriptive_detail, old_product):
         etree.SubElement(audience, 'AudienceCodeValue').text = audience_code[0]
 
 def process_extent(descriptive_detail, old_product):
-    """Process extent information with validation"""
+    """Process extent information"""
     for old_extent in old_product.xpath('.//*[local-name() = "Extent"]'):
         extent_type = old_extent.xpath('.//*[local-name() = "ExtentType"]/text()')
         extent_value = old_extent.xpath('.//*[local-name() = "ExtentValue"]/text()')
         extent_unit = old_extent.xpath('.//*[local-name() = "ExtentUnit"]/text()')
         
-        # Only create Extent if we have valid values
         if extent_type and extent_value and extent_unit:
             try:
-                # Validate extent value is greater than 0
                 value = int(extent_value[0])
                 if value > 0:
                     new_extent = etree.SubElement(descriptive_detail, 'Extent')
@@ -381,11 +371,10 @@ def process_collateral_detail(new_product, old_product):
     return collateral_detail
 
 def process_text_content(collateral_detail, old_product):
-    """Process text content with proper type mapping"""
+    """Process text content"""
     for old_text in old_product.xpath('.//*[local-name() = "OtherText"]'):
         text_content = etree.SubElement(collateral_detail, 'TextContent')
         
-        # Get and map text type
         text_type = old_text.xpath('.//*[local-name() = "TextTypeCode"]/text()')
         type_value = text_type[0] if text_type else "03"
         if type_value == "99":
@@ -402,3 +391,109 @@ def process_text_content(collateral_detail, old_product):
             text_format = old_text.xpath('.//*[local-name() = "TextFormat"]/text()')
             if text_format:
                 text_elem.set('textformat', text_format[0].lower())
+
+def process_supporting_resources(collateral_detail, old_product):
+    """Process supporting resources section"""
+    for old_resource in old_product.xpath('.//*[local-name() = "SupportingResource"]'):
+        new_resource = etree.SubElement(collateral_detail, 'SupportingResource')
+        
+        # ResourceContentType
+        content_type = old_resource.xpath('.//*[local-name() = "ResourceContentType"]/text()')
+        if content_type:
+            type_elem = etree.SubElement(new_resource, 'ResourceContentType')
+            type_elem.text = content_type[0]
+        
+        # ResourceMode
+        mode = old_resource.xpath('.//*[local-name() = "ResourceMode"]/text()')
+        if mode:
+            mode_elem = etree.SubElement(new_resource, 'ResourceMode')
+            mode_elem.text = mode[0]
+        
+        # ResourceVersion
+        version = etree.SubElement(new_resource, 'ResourceVersion')
+        
+        # ResourceForm
+        form = old_resource.xpath('.//*[local-name() = "ResourceForm"]/text()')
+        if form:
+            form_elem = etree.SubElement(version, 'ResourceForm')
+            form_elem.text = form[0]
+        
+        # ResourceLink
+        link = old_resource.xpath('.//*[local-name() = "ResourceLink"]/text()')
+        if link:
+            link_elem = etree.SubElement(version, 'ResourceLink')
+            link_elem.text = link[0]
+        
+        # ContentDateRole and Date
+        date_role = old_resource.xpath('.//*[local-name() = "ContentDateRole"]/text()')
+        date = old_resource.xpath('.//*[local-name() = "Date"]/text()')
+        if date_role and date:
+            date_elem = etree.SubElement(version, 'ContentDate')
+            role_elem = etree.SubElement(date_elem, 'ContentDateRole')
+            role_elem.text = date_role[0]
+            date_value = etree.SubElement(date_elem, 'Date')
+            date_value.text = format_date(date[0])
+
+def process_publishing_detail(new_product, old_product):
+    """Process publishing detail section"""
+    publishing_detail = etree.SubElement(new_product, 'PublishingDetail')
+
+    # Publisher
+    publisher = etree.SubElement(publishing_detail, 'Publisher')
+    pub_role = etree.SubElement(publisher, 'PublishingRole')
+    pub_role.text = '01'
+
+    pub_name = old_product.xpath('.//*[local-name() = "PublisherName"]/text()')
+    if pub_name:
+        pub_name_elem = etree.SubElement(publisher, 'PublisherName')
+        pub_name_elem.text = pub_name[0]
+
+    # Publishing Status
+    status = old_product.xpath('.//*[local-name() = "PublishingStatus"]/text()')
+    if status:
+        status_elem = etree.SubElement(publishing_detail, 'PublishingStatus')
+        status_elem.text = status[0]
+
+    # Publication Date
+    pub_date = old_product.xpath('.//*[local-name() = "PublicationDate"]/text()')
+    if pub_date:
+        publishing_date = etree.SubElement(publishing_detail, 'PublishingDate')
+        etree.SubElement(publishing_date, 'PublishingDateRole').text = '01'
+        etree.SubElement(publishing_date, 'Date').text = format_date(pub_date[0])
+
+    return publishing_detail
+
+def process_product_supply(new_product, old_product):
+    """Process product supply section"""
+    product_supply = etree.SubElement(new_product, 'ProductSupply')
+    
+    # Market
+    market = etree.SubElement(product_supply, 'Market')
+    territory = etree.SubElement(market, 'Territory')
+    
+    countries = old_product.xpath('.//*[local-name() = "CountriesIncluded"]/text()')
+    if countries:
+        countries_elem = etree.SubElement(territory, 'CountriesIncluded')
+        countries_elem.text = countries[0]
+    
+    # Supply Detail
+    supply_detail = etree.SubElement(product_supply, 'SupplyDetail')
+    
+    supplier = etree.SubElement(supply_detail, 'Supplier')
+    etree.SubElement(supplier, 'SupplierRole').text = '01'
+    
+    supplier_name = old_product.xpath('.//*[local-name() = "SupplierName"]/text()')
+    if supplier_name:
+        name_elem = etree.SubElement(supplier, 'SupplierName')
+        name_elem.text = supplier_name[0]
+    
+    # Product Availability
+    availability = old_product.xpath('.//*[local-name() = "ProductAvailability"]/text()')
+    if availability:
+        avail_elem = etree.SubElement(supply_detail, 'ProductAvailability')
+        avail_elem.text = availability[0]
+    
+    # Prices
+    process_prices(supply_detail, old_product)
+    
+    return product_supply
