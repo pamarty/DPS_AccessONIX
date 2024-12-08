@@ -6,7 +6,7 @@ from ..onix_utils import format_date
 
 logger = logging.getLogger(__name__)
 
-def process_publishing_detail(new_product, old_product):
+def process_publishing_detail(new_product, old_product, publisher_data=None):
     """Process publishing detail section"""
     publishing_detail = etree.SubElement(new_product, 'PublishingDetail')
 
@@ -15,10 +15,15 @@ def process_publishing_detail(new_product, old_product):
     pub_role = etree.SubElement(publisher, 'PublishingRole')
     pub_role.text = DEFAULT_PUBLISHER_ROLE
 
-    pub_name = old_product.xpath('.//*[local-name() = "PublisherName"]/text()')
-    if pub_name:
+    # Use publisher data if available
+    if publisher_data and publisher_data.get('sender_name'):
         pub_name_elem = etree.SubElement(publisher, 'PublisherName')
-        pub_name_elem.text = pub_name[0]
+        pub_name_elem.text = publisher_data['sender_name']
+    else:
+        pub_name = old_product.xpath('.//*[local-name() = "PublisherName"]/text()')
+        if pub_name:
+            pub_name_elem = etree.SubElement(publisher, 'PublisherName')
+            pub_name_elem.text = pub_name[0]
 
     # Publishing Status
     status = old_product.xpath('.//*[local-name() = "PublishingStatus"]/text()')

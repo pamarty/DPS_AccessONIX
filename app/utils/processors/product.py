@@ -26,10 +26,10 @@ def process_product(old_product, new_root, epub_features, epub_isbn, publisher_d
     # Process identifiers without duplicates
     process_identifiers(new_product, old_product, epub_isbn)
 
-    # Process main sections
+    # Process main sections with publisher data
     descriptive_detail = process_descriptive_detail(new_product, old_product, epub_features, publisher_data)
     collateral_detail = process_collateral_detail(new_product, old_product)
-    publishing_detail = process_publishing_detail(new_product, old_product)
+    publishing_detail = process_publishing_detail(new_product, old_product, publisher_data)
     process_product_supply(new_product, old_product, publisher_data)
 
 def process_identifiers(new_product, old_product, epub_isbn):

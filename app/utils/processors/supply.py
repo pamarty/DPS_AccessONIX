@@ -43,10 +43,15 @@ def process_supply_detail(product_supply, old_product, publisher_data=None):
     supplier = etree.SubElement(supply_detail, 'Supplier')
     etree.SubElement(supplier, 'SupplierRole').text = DEFAULT_SUPPLIER_ROLE
     
-    supplier_name = old_product.xpath('.//*[local-name() = "SupplierName"]/text()')
-    if supplier_name:
+    # Use publisher data for supplier name if available
+    if publisher_data and publisher_data.get('sender_name'):
         name_elem = etree.SubElement(supplier, 'SupplierName')
-        name_elem.text = supplier_name[0]
+        name_elem.text = publisher_data['sender_name']
+    else:
+        supplier_name = old_product.xpath('.//*[local-name() = "SupplierName"]/text()')
+        if supplier_name:
+            name_elem = etree.SubElement(supplier, 'SupplierName')
+            name_elem.text = supplier_name[0]
     
     # Product Availability
     availability = old_product.xpath('.//*[local-name() = "ProductAvailability"]/text()')
@@ -59,21 +64,29 @@ def process_supply_detail(product_supply, old_product, publisher_data=None):
 
 def process_prices(supply_detail, old_product, publisher_data=None):
     """Process price information"""
+    # Always prioritize publisher data prices if available
     if publisher_data:
+        logger.info("Processing prices from publisher data")
         if publisher_data.get('price_cad'):
             price = etree.SubElement(supply_detail, 'Price')
-            etree.SubElement(price, 'PriceAmount').text = validate_price(publisher_data['price_cad'])
-            etree.SubElement(price, 'CurrencyCode').text = 'CAD'
+            price_amount = etree.SubElement(price, 'PriceAmount')
+            price_amount.text = validate_price(publisher_data['price_cad'])
+            currency = etree.SubElement(price, 'CurrencyCode')
+            currency.text = 'CAD'
         
         if publisher_data.get('price_gbp'):
             price = etree.SubElement(supply_detail, 'Price')
-            etree.SubElement(price, 'PriceAmount').text = validate_price(publisher_data['price_gbp'])
-            etree.SubElement(price, 'CurrencyCode').text = 'GBP'
+            price_amount = etree.SubElement(price, 'PriceAmount')
+            price_amount.text = validate_price(publisher_data['price_gbp'])
+            currency = etree.SubElement(price, 'CurrencyCode')
+            currency.text = 'GBP'
         
         if publisher_data.get('price_usd'):
             price = etree.SubElement(supply_detail, 'Price')
-            etree.SubElement(price, 'PriceAmount').text = validate_price(publisher_data['price_usd'])
-            etree.SubElement(price, 'CurrencyCode').text = 'USD'
+            price_amount = etree.SubElement(price, 'PriceAmount')
+            price_amount.text = validate_price(publisher_data['price_usd'])
+            currency = etree.SubElement(price, 'CurrencyCode')
+            currency.text = 'USD'
     else:
         # Process existing prices if no publisher data
         for old_price in old_product.xpath('.//*[local-name() = "Price"]'):
