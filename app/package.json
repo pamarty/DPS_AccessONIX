@@ -1,0 +1,17 @@
+{
+  "name": "accessonix",
+  "version": "1.0.0",
+  "description": "ONIX Generator for Accessible EPUBs",
+  "main": "app/main.py",
+  "scripts": {
+    "start": "python app/main.py",
+    "test": "pytest"
+  },
+  "dependencies": {
+    "bootstrap": "^5.3.2",
+    "jquery": "^3.7.1"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

@@ -1,5 +1,4 @@
 document.addEventListener('DOMContentLoaded', function() {
-    // Form handling
     const onixForm = document.getElementById('onixForm');
     const roleSelect = document.getElementById('role');
     const publisherFields = document.getElementById('publisher-fields');
@@ -30,7 +29,7 @@ function togglePublisherFields(role) {
     const publisherFields = document.getElementById('publisher-fields');
     const requiredFields = publisherFields.querySelectorAll('input, select');
     
-    if (role === 'publisher') {
+    if (role === 'enhanced') {
         publisherFields.style.display = 'block';
         requiredFields.forEach(field => {
             field.required = true;
@@ -39,6 +38,7 @@ function togglePublisherFields(role) {
         publisherFields.style.display = 'none';
         requiredFields.forEach(field => {
             field.required = false;
+            field.value = '';
         });
     }
 }
@@ -73,9 +73,9 @@ function validateForm() {
         return false;
     }
     
-    // Publisher role specific validations
-    if (role === 'publisher') {
-        if (!validatePublisherFields()) {
+    // Enhanced role specific validations
+    if (role === 'enhanced') {
+        if (!validateEnhancedFields()) {
             return false;
         }
     }
@@ -83,7 +83,7 @@ function validateForm() {
     return true;
 }
 
-function validatePublisherFields() {
+function validateEnhancedFields() {
     const namePattern = /^[a-zA-Z0-9\s\-\'\.]+$/;
     const emailPattern = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
     const pricePattern = /^\d+(\.\d{1,2})?$/;

@@ -4,11 +4,13 @@
 
 {% block content %}
 <div class="container">
-    <div class="header text-center mb-4">
-        <a href="https://www.deslibris.pub" target="_blank">
-            <img src="{{ url_for('static', filename='images/dpslogo.png') }}" alt="DPS Logo" style="width: 175%;">
-        </a>
-        <h1 class="mt-3 text-center">AccessONIX</h1>
+    <div class="header">
+        <div class="logo-container">
+            <a href="https://www.deslibris.pub" target="_blank">
+                <img src="{{ url_for('static', filename='images/dpslogo.png') }}" alt="DPS Logo" class="logo">
+            </a>
+        </div>
+        <h1 class="title">AccessONIX</h1>
     </div>
 
     <form id="onixForm" method="POST" action="{{ url_for('process') }}" enctype="multipart/form-data">
@@ -118,54 +120,4 @@
         </div>
     </form>
 </div>
-{% endblock %}
-
-{% block scripts %}
-<script>
-document.getElementById('role').addEventListener('change', function() {
-    const publisherFields = document.getElementById('publisher-fields');
-    const publisherInputs = publisherFields.getElementsByTagName('input');
-    const publisherSelects = publisherFields.getElementsByTagName('select');
-    
-    if (this.value === 'enhanced') {
-        publisherFields.style.display = 'block';
-        for (let input of publisherInputs) {
-            input.required = true;
-        }
-        for (let select of publisherSelects) {
-            select.required = true;
-        }
-    } else {
-        publisherFields.style.display = 'none';
-        for (let input of publisherInputs) {
-            input.required = false;
-        }
-        for (let select of publisherSelects) {
-            select.required = false;
-        }
-    }
-});
-
-// Email validation
-document.getElementById('email').addEventListener('input', function() {
-    const email = this.value;
-    const emailPattern = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
-    
-    if (emailPattern.test(email)) {
-        this.setCustomValidity('');
-    } else {
-        this.setCustomValidity('Please enter a valid email address');
-    }
-});
-
-// ISBN validation
-document.getElementById('epub_isbn').addEventListener('input', function() {
-    const isbn = this.value.replace(/\D/g, '');
-    if (isbn.length === 13) {
-        this.setCustomValidity('');
-    } else {
-        this.setCustomValidity('ISBN must be exactly 13 digits');
-    }
-});
-</script>
 {% endblock %}
