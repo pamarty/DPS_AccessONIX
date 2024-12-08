@@ -471,10 +471,20 @@ def process_product_supply(new_product, old_product):
     market = etree.SubElement(product_supply, 'Market')
     territory = etree.SubElement(market, 'Territory')
     
+    # Ensure at least one territory element is present
     countries = old_product.xpath('.//*[local-name() = "CountriesIncluded"]/text()')
+    regions = old_product.xpath('.//*[local-name() = "RegionsIncluded"]/text()')
+    
     if countries:
         countries_elem = etree.SubElement(territory, 'CountriesIncluded')
         countries_elem.text = countries[0]
+    elif regions:
+        regions_elem = etree.SubElement(territory, 'RegionsIncluded')
+        regions_elem.text = regions[0]
+    else:
+        # Default to WORLD if no territory information is provided
+        regions_elem = etree.SubElement(territory, 'RegionsIncluded')
+        regions_elem.text = 'WORLD'
     
     # Supply Detail
     supply_detail = etree.SubElement(product_supply, 'SupplyDetail')
