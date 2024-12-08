@@ -3,75 +3,64 @@
 {% block title %}AccessONIX - Help{% endblock %}
 
 {% block content %}
-<div class="container">
-    <div class="header">
-        <div class="logo-container">
-            <a href="https://www.deslibris.pub" target="_blank">
-                <img src="{{ url_for('static', filename='images/dpslogo.png') }}" alt="DPS Logo" class="logo">
-            </a>
-        </div>
-        <h1 class="title">AccessONIX</h1>
-    </div>
+<div class="help-container">
+    <section class="help-section">
+        <h2>Application Overview</h2>
+        <p>AccessONIX is a tool for creating ONIX XML files for accessible EPUB formats. The application processes your EPUB file and existing ONIX data to generate a complete ONIX 3.0 file with accessibility information.</p>
+    </section>
 
-    <div class="help-container">
-        <section class="help-section">
-            <h2>Application Overview</h2>
-            <p>AccessONIX is a tool for creating ONIX XML files for accessible EPUB formats. The application processes your EPUB file and existing ONIX data to generate a complete ONIX 3.0 file with accessibility information.</p>
-        </section>
+    <section class="help-section">
+        <h2>Process Steps</h2>
+        <ol>
+            <li>
+                <strong>Upload Files</strong>
+                <ul>
+                    <li>Upload your accessible EPUB file</li>
+                    <li>Upload your existing ONIX XML file</li>
+                    <li>Enter the EPUB's 13-digit ISBN</li>
+                </ul>
+            </li>
+            <li>
+                <strong>Select Role</strong>
+                <ul>
+                    <li><strong>Basic:</strong> Basic ONIX generation with accessibility features</li>
+                    <li><strong>Enhanced:</strong> Complete ONIX generation including sender and pricing information</li>
+                </ul>
+            </li>
+            <li>
+                <strong>Enhanced Information (Enhanced Role Only)</strong>
+                <ul>
+                    <li>Sender Name</li>
+                    <li>Contact Name</li>
+                    <li>Email Address</li>
+                    <li>Product Composition</li>
+                    <li>Product Form</li>
+                    <li>Language Code</li>
+                    <li>Pricing Information (CAD, GBP, USD)</li>
+                </ul>
+            </li>
+        </ol>
+    </section>
 
-        <section class="help-section">
-            <h2>Process Steps</h2>
-            <ol>
-                <li>
-                    <strong>Upload Files</strong>
-                    <ul>
-                        <li>Upload your accessible EPUB file</li>
-                        <li>Upload your existing ONIX XML file</li>
-                        <li>Enter the EPUB's 13-digit ISBN</li>
-                    </ul>
-                </li>
-                <li>
-                    <strong>Select Role</strong>
-                    <ul>
-                        <li><strong>Basic:</strong> Simple ONIX generation with accessibility features</li>
-                        <li><strong>Enhanced:</strong> Complete ONIX generation including sender and pricing information</li>
-                    </ul>
-                </li>
-                <li>
-                    <strong>Enhanced Information (Enhanced Role Only)</strong>
-                    <ul>
-                        <li>Sender Name</li>
-                        <li>Contact Name</li>
-                        <li>Email Address</li>
-                        <li>Product Composition</li>
-                        <li>Product Form</li>
-                        <li>Language Code</li>
-                        <li>Pricing Information (CAD, GBP, USD)</li>
-                    </ul>
-                </li>
-            </ol>
-        </section>
+    <section class="help-section">
+        <h2>File Requirements</h2>
+        <ul>
+            <li>EPUB file must be properly formatted and contain accessibility features</li>
+            <li>ONIX file must be valid XML</li>
+            <li>Maximum file size: 16MB</li>
+            <li>ISBN must be 13 digits</li>
+        </ul>
+    </section>
 
-        <section class="help-section">
-            <h2>File Requirements</h2>
-            <ul>
-                <li>EPUB file must be properly formatted and contain accessibility features</li>
-                <li>ONIX file must be valid XML</li>
-                <li>Maximum file size: 16MB</li>
-                <li>ISBN must be 13 digits</li>
-            </ul>
-        </section>
-
-        <section class="help-section">
-            <h2>Output</h2>
-            <p>The application will generate a complete ONIX 3.0 XML file that includes:</p>
-            <ul>
-                <li>All accessibility features detected in the EPUB</li>
-                <li>Updated product identifiers</li>
-                <li>Publisher information (if provided)</li>
-                <li>Pricing information (if provided)</li>
-            </ul>
-        </section>
-    </div>
+    <section class="help-section">
+        <h2>Output</h2>
+        <p>The application will generate a complete ONIX 3.0 XML file that includes:</p>
+        <ul>
+            <li>All accessibility features detected in the EPUB</li>
+            <li>Updated product identifiers</li>
+            <li>Publisher information (if provided)</li>
+            <li>Pricing information (if provided)</li>
+        </ul>
+    </section>
 </div>
 {% endblock %}

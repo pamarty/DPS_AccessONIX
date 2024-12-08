@@ -14,14 +14,14 @@ body {
 }
 
 /* Header styles */
-.header-container {
+.header {
     display: flex;
     flex-direction: column;
     align-items: center;
+    margin-bottom: 30px;
     padding: 20px;
     background-color: #fff;
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    margin-bottom: 30px;
 }
 
 .logo-container {
@@ -30,9 +30,14 @@ body {
 }
 
 .logo {
-    width: auto;
+    width: 175%;
     height: auto;
     max-width: 350px;
+    transition: transform 0.3s ease;
+}
+
+.logo:hover {
+    transform: scale(1.05);
 }
 
 .title {
@@ -42,9 +47,6 @@ body {
     font-size: 2.5em;
     width: 100%;
 }
-
-/* Rest of your existing CSS remains the same */
-
 
 /* Form styles */
 .form-section {
@@ -57,12 +59,14 @@ body {
 
 .form-group {
     margin-bottom: 15px;
+    position: relative;
 }
 
 label {
     display: block;
     margin-bottom: 5px;
     font-weight: bold;
+    color: #333;
 }
 
 input[type="text"],
@@ -70,27 +74,55 @@ input[type="email"],
 input[type="number"],
 select {
     width: 100%;
-    padding: 8px;
+    padding: 10px;
     border: 1px solid #ddd;
     border-radius: 4px;
     box-sizing: border-box;
+    font-size: 16px;
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+input[type="number"] {
+    -moz-appearance: textfield;
+}
+
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
 }
 
 input[type="file"] {
-    padding: 8px;
+    padding: 10px;
     border: 1px solid #ddd;
     border-radius: 4px;
     background-color: #fff;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+input:focus,
+select:focus {
+    outline: none;
+    border-color: #007bff;
+    box-shadow: 0 0 0 2px rgba(0,123,255,0.25);
 }
 
 /* Button styles */
+.form-actions {
+    margin-top: 30px;
+    text-align: center;
+}
+
 .btn {
-    padding: 10px 20px;
+    padding: 12px 24px;
     border: none;
     border-radius: 4px;
     cursor: pointer;
     font-weight: bold;
+    font-size: 16px;
     transition: all 0.3s ease;
+    margin: 0 10px;
 }
 
 .btn-primary {
@@ -100,16 +132,17 @@ input[type="file"] {
 
 .btn-primary:hover {
     background-color: #0056b3;
+    transform: translateY(-1px);
 }
 
 .btn-secondary {
     background-color: #6c757d;
     color: #fff;
-    margin-left: 10px;
 }
 
 .btn-secondary:hover {
     background-color: #545b62;
+    transform: translateY(-1px);
 }
 
 /* Alert styles */
@@ -118,6 +151,7 @@ input[type="file"] {
     margin-bottom: 20px;
     border: 1px solid transparent;
     border-radius: 4px;
+    text-align: center;
 }
 
 .alert-success {
@@ -160,24 +194,100 @@ input[type="file"] {
     margin-top: 4px;
 }
 
+.form-text {
+    color: #6c757d;
+    font-size: 0.875rem;
+    margin-top: 4px;
+}
+
+/* Help page styles */
+.help-container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.help-section {
+    background: #fff;
+    border-radius: 4px;
+    padding: 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.help-section h2 {
+    color: #333;
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #eee;
+}
+
+.help-section ul,
+.help-section ol {
+    margin-left: 20px;
+    margin-bottom: 15px;
+}
+
+.help-section li {
+    margin-bottom: 8px;
+}
+
+/* Footer styles */
+footer {
+    text-align: center;
+    padding: 20px;
+    background-color: #fff;
+    border-top: 1px solid #ddd;
+    margin-top: 40px;
+    color: #666;
+}
+
 /* Responsive styles */
 @media (max-width: 768px) {
-    .header {
-        flex-direction: column;
-        text-align: center;
+    .container {
+        padding: 10px;
     }
 
-    .logo-container {
-        margin-right: 0;
-        margin-bottom: 20px;
+    .header {
+        padding: 15px;
+    }
+
+    .logo {
+        max-width: 250px;
+    }
+
+    .title {
+        font-size: 2em;
+    }
+
+    .form-section {
+        padding: 15px;
     }
 
     .btn {
         width: 100%;
-        margin-bottom: 10px;
+        margin: 10px 0;
     }
 
-    .btn-secondary {
-        margin-left: 0;
+    .help-container {
+        padding: 10px;
+    }
+}
+
+/* Print styles */
+@media print {
+    .btn-secondary,
+    .form-actions {
+        display: none;
+    }
+
+    .container {
+        max-width: 100%;
+        padding: 0;
+    }
+
+    .form-section {
+        break-inside: avoid;
+        page-break-inside: avoid;
     }
 }

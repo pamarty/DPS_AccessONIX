@@ -95,7 +95,7 @@ def process_onix(epub_features, xml_content, epub_isbn, publisher_data=None):
         new_root = etree.Element('ONIXMessage', nsmap=NSMAP)
         new_root.set("release", "3.0")
 
-        # Process header with publisher data
+        # Process header
         process_header(tree, new_root, original_version, publisher_data)
 
         # Process products
@@ -134,14 +134,23 @@ def process_header(root, new_root, original_version, publisher_data=None):
             name_elem = etree.SubElement(sender, 'SenderName')
             name_elem.text = from_company[0] if from_company else "Default Company Name"
 
-    if publisher_data:
-        if publisher_data.get('contact_name'):
+    if publisher_data and publisher_data.get('contact_name'):
+        contact_elem = etree.SubElement(sender, 'ContactName')
+        contact_elem.text = publisher_data['contact_name']
+    else:
+        contact_name = root.xpath('.//*[local-name() = "ContactName"]/text()')
+        if contact_name:
             contact_elem = etree.SubElement(sender, 'ContactName')
-            contact_elem.text = publisher_data['contact_name']
-        
-        if publisher_data.get('email'):
+            contact_elem.text = contact_name[0]
+
+    if publisher_data and publisher_data.get('email'):
+        email_elem = etree.SubElement(sender, 'EmailAddress')
+        email_elem.text = publisher_data['email']
+    else:
+        email = root.xpath('.//*[local-name() = "EmailAddress"]/text()')
+        if email:
             email_elem = etree.SubElement(sender, 'EmailAddress')
-            email_elem.text = publisher_data['email']
+            email_elem.text = email[0]
 
     sent_date_time = etree.SubElement(header, 'SentDateTime')
     sent_date_time.text = datetime.now().strftime("%Y%m%dT%H%M%S")
@@ -164,7 +173,7 @@ def process_product(old_product, new_root, epub_features, epub_isbn, publisher_d
     notify_type = old_product.xpath('.//*[local-name() = "NotificationType"]/text()')
     notify_element.text = notify_type[0] if notify_type else '03'
 
-    # Process identifiers with deduplication
+    # Process identifiers without duplicates
     process_identifiers(new_product, old_product, epub_isbn)
 
     # Process main sections
@@ -174,51 +183,37 @@ def process_product(old_product, new_root, epub_features, epub_isbn, publisher_d
     process_product_supply(new_product, old_product, publisher_data)
 
 def process_identifiers(new_product, old_product, epub_isbn):
-    """Process product identifiers with deduplication"""
-    processed_identifiers = set()
+    """Process product identifiers without duplicates"""
+    processed_types = set()
     
-    # Add ISBN-13 identifier
-    identifier = etree.SubElement(new_product, 'ProductIdentifier')
-    type_elem = etree.SubElement(identifier, 'ProductIDType')
-    type_elem.text = '15'
-    value_elem = etree.SubElement(identifier, 'IDValue')
-    value_elem.text = epub_isbn
-    processed_identifiers.add(('15', epub_isbn))
-    
-    # Process other identifiers
     for old_identifier in old_product.xpath('.//*[local-name() = "ProductIdentifier"]'):
         id_type = old_identifier.xpath('.//*[local-name() = "ProductIDType"]/text()')
-        id_value = old_identifier.xpath('.//*[local-name() = "IDValue"]/text()')
-        
-        if id_type and id_value:
-            id_type = id_type[0]
-            id_value = id_value[0]
-            
-            if (id_type, id_value) in processed_identifiers:
-                continue
-            
-            if id_type in ['03', '15']:
-                continue
-            
+        if id_type and id_type[0] not in processed_types:
             new_identifier = etree.SubElement(new_product, 'ProductIdentifier')
             type_elem = etree.SubElement(new_identifier, 'ProductIDType')
-            type_elem.text = id_type
+            type_elem.text = id_type[0]
+            
             value_elem = etree.SubElement(new_identifier, 'IDValue')
-            value_elem.text = id_value
-            processed_identifiers.add((id_type, id_value))
+            if id_type[0] in ["03", "15"]:  # ISBN-13
+                value_elem.text = epub_isbn
+            else:
+                old_value = old_identifier.xpath('.//*[local-name() = "IDValue"]/text()')
+                value_elem.text = old_value[0] if old_value else ''
+            
+            processed_types.add(id_type[0])
 
 def process_descriptive_detail(new_product, old_product, epub_features, publisher_data=None):
     """Process descriptive detail section"""
     descriptive_detail = etree.SubElement(new_product, 'DescriptiveDetail')
 
-    # Product composition
+    # Product Composition
     product_comp = etree.SubElement(descriptive_detail, 'ProductComposition')
     if publisher_data and publisher_data.get('product_composition'):
         product_comp.text = publisher_data['product_composition']
     else:
         product_comp.text = '00'
     
-    # Product form
+    # Product Form
     product_form = etree.SubElement(descriptive_detail, 'ProductForm')
     if publisher_data and publisher_data.get('product_form'):
         product_form.text = publisher_data['product_form']
@@ -226,7 +221,7 @@ def process_descriptive_detail(new_product, old_product, epub_features, publishe
         old_form = old_product.xpath('.//*[local-name() = "ProductForm"]/text()')
         product_form.text = old_form[0] if old_form else 'EB'
     
-    # Product form detail
+    # Product Form Detail
     product_form_detail = etree.SubElement(descriptive_detail, 'ProductFormDetail')
     old_detail = old_product.xpath('.//*[local-name() = "ProductFormDetail"]/text()')
     product_form_detail.text = old_detail[0] if old_detail else 'E101'
@@ -284,10 +279,12 @@ def process_contributors(descriptive_detail, old_product):
     for old_contributor in old_product.xpath('.//*[local-name() = "Contributor"]'):
         new_contributor = etree.SubElement(descriptive_detail, 'Contributor')
         
+        # ContributorRole must come first
         role = old_contributor.xpath('.//*[local-name() = "ContributorRole"]/text()')
         if role:
             etree.SubElement(new_contributor, 'ContributorRole').text = role[0]
 
+        # Personal name elements in correct order
         person_name = old_contributor.xpath('.//*[local-name() = "PersonName"]/text()')
         if person_name:
             etree.SubElement(new_contributor, 'PersonName').text = person_name[0]
