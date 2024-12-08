@@ -493,7 +493,30 @@ def process_product_supply(new_product, old_product):
         avail_elem = etree.SubElement(supply_detail, 'ProductAvailability')
         avail_elem.text = availability[0]
     
-    # Prices
+    # Process prices
     process_prices(supply_detail, old_product)
     
     return product_supply
+
+def process_prices(supply_detail, old_product):
+    """Process price information"""
+    for old_price in old_product.xpath('.//*[local-name() = "Price"]'):
+        price_amount = old_price.xpath('.//*[local-name() = "PriceAmount"]/text()')
+        if price_amount:
+            price = etree.SubElement(supply_detail, 'Price')
+            
+            # Price Type
+            price_type = old_price.xpath('.//*[local-name() = "PriceType"]/text()')
+            if price_type:
+                type_elem = etree.SubElement(price, 'PriceType')
+                type_elem.text = price_type[0]
+            
+            # Price Amount
+            amount_elem = etree.SubElement(price, 'PriceAmount')
+            amount_elem.text = validate_price(price_amount[0])
+            
+            # Currency
+            currency = old_price.xpath('.//*[local-name() = "CurrencyCode"]/text()')
+            if currency:
+                currency_elem = etree.SubElement(price, 'CurrencyCode')
+                currency_elem.text = currency[0]
