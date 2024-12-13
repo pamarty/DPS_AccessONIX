@@ -108,5 +108,11 @@
             enhancedFields.style.display = 'none';
         }
     });
+
+    document.getElementById('onixForm').addEventListener('submit', function (event) {
+        event.preventDefault(); // Prevent default for testing
+        alert('Form submitted successfully!'); // Placeholder for server action
+        this.submit(); // Uncomment to enable actual submission
+    });
 </script>
 {% endblock %}
