@@ -1,72 +1,78 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AccessONIX</title>
-    <link rel="stylesheet" href="styles.css">
-</head>
-<body>
-    <header>
-        <div class="header">
-            <div class="logo-container">
-                <a href="https://www.deslibris.pub" target="_blank">
-                    <img src="images/dpslogo.png" alt="DesLibris Publishing Solutions Logo" class="logo">
-                </a>
+{% extends "base.html" %}
+
+{% block title %}AccessONIX - ONIX Generator{% endblock %}
+
+{% block content %}
+<div class="container">
+    <section class="intro">
+        <p>By merging data extracted from an accessible EPUB file with data from the print ONIX record for the title, this tool generates a "remediated" ONIX 3.0 record meeting Editeur standards.</p>
+    </section>
+
+    <form id="onixForm" method="POST" action="{{ url_for('process') }}" enctype="multipart/form-data">
+        <div class="form-section">
+            <h2>File Upload</h2>
+            <div class="form-group file-upload-columns">
+                <div>
+                    <label for="epub_file">Upload Accessible EPUB:</label>
+                    <input type="file" id="epub_file" name="epub_file" accept=".epub" required>
+                </div>
+                <div>
+                    <label for="onix_file">Upload ONIX XML:</label>
+                    <input type="file" id="onix_file" name="onix_file" accept=".xml" required>
+                </div>
+                <div>
+                    <label for="epub_isbn">EPUB ISBN (13 digits):</label>
+                    <input type="text" id="epub_isbn" name="epub_isbn" pattern="\d{13}" required>
+                </div>
             </div>
-            <h1 class="title">AccessONIX</h1>
         </div>
-    </header>
 
-    <main>
-        <div class="container">
-            <section class="intro">
-                <p>By merging data extracted from an accessible EPUB file with data from the print ONIX record for the title, this tool generates a "remediated" ONIX 3.0 record meeting Editeur standards.</p>
-            </section>
-
-            <form id="onixForm" method="POST" action="process" enctype="multipart/form-data">
-                <div class="form-section">
-                    <h2>File Upload</h2>
-                    <div class="form-group file-upload-columns">
-                        <div>
-                            <label for="epub_file">Upload Accessible EPUB:</label>
-                            <input type="file" id="epub_file" name="epub_file" accept=".epub" required>
-                        </div>
-                        <div>
-                            <label for="onix_file">Upload ONIX XML:</label>
-                            <input type="file" id="onix_file" name="onix_file" accept=".xml" required>
-                        </div>
-                        <div>
-                            <label for="epub_isbn">EPUB ISBN (13 digits):</label>
-                            <input type="text" id="epub_isbn" name="epub_isbn" pattern="\d{13}" required>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="form-section">
-                    <h2>Output Options</h2>
-                    <p>Choose "Enhanced" to create a record that includes sender and pricing information. Choose "Basic" to create a record without this detail.</p>
-                    <div class="form-group">
-                        <label for="role">Select Output Option:</label>
-                        <select id="role" name="role" required>
-                            <option value="basic">Basic</option>
-                            <option value="enhanced">Enhanced</option>
-                        </select>
-                    </div>
-                </div>
-
-                <div class="form-actions">
-                    <button type="submit" class="btn btn-primary">Generate ONIX</button>
-                    <button type="button" class="btn btn-secondary" onclick="window.location.href='help'">Help</button>
-                    <button type="button" class="btn btn-secondary" onclick="window.open('https://chic-cascaron-db5ad2.netlify.app', '_blank')">Validator</button>
-                </div>
-            </form>
-
-            <footer>
-                <p>The record created here will pass validation against the ONIX standards. For free ONIX, sign up <a href="https://www.editeur.org/93/Release-3.0-Downloads/" target="_blank">here</a>.</p>
-                <p>&copy; desLibris Publishing Solutions</p>
-            </footer>
+        <div class="form-section">
+            <h2>Output Options</h2>
+            <p>Choose "Enhanced" to create a record that includes sender and pricing information. Choose "Basic" to create a record without this detail.</p>
+            <div class="form-group">
+                <label for="role">Select Output Option:</label>
+                <select id="role" name="role" required>
+                    <option value="basic">Basic</option>
+                    <option value="enhanced">Enhanced</option>
+                </select>
+            </div>
         </div>
-    </main>
-</body>
-</html>
+
+        <div id="enhanced-fields" class="form-section" style="display: none;">
+            <h2>Enhanced Information</h2>
+            <div class="form-group">
+                <label for="sender_name">Sender Name:</label>
+                <input type="text" id="sender_name" name="sender_name">
+            </div>
+            <div class="form-group">
+                <label for="pricing">Pricing Information:</label>
+                <input type="text" id="pricing" name="pricing">
+            </div>
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">Generate ONIX</button>
+            <button type="button" class="btn btn-secondary" onclick="window.location.href='{{ url_for('help') }}'">Help</button>
+            <button type="button" class="btn btn-secondary" onclick="window.open('https://chic-cascaron-db5ad2.netlify.app', '_blank')">Validator</button>
+        </div>
+    </form>
+
+    <footer>
+        <p>The record created here will pass validation against the ONIX standards. For free ONIX, sign up <a href="https://www.editeur.org/93/Release-3.0-Downloads/" target="_blank">here</a>.</p>
+    </footer>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.getElementById('role').addEventListener('change', function () {
+        const enhancedFields = document.getElementById('enhanced-fields');
+        if (this.value === 'enhanced') {
+            enhancedFields.style.display = 'block';
+        } else {
+            enhancedFields.style.display = 'none';
+        }
+    });
+</script>
+{% endblock %}
