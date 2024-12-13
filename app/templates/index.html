@@ -11,16 +11,16 @@
     <form id="onixForm" method="POST" action="{{ url_for('process') }}" enctype="multipart/form-data">
         <div class="form-section">
             <h2>File Upload</h2>
-            <div class="form-group file-upload-columns">
-                <div>
+            <div class="form-group file-upload-columns" style="display: flex; gap: 20px;">
+                <div style="flex: 1;">
                     <label for="epub_file">Upload Accessible EPUB:</label>
                     <input type="file" id="epub_file" name="epub_file" accept=".epub" required>
                 </div>
-                <div>
+                <div style="flex: 1;">
                     <label for="onix_file">Upload ONIX XML:</label>
                     <input type="file" id="onix_file" name="onix_file" accept=".xml" required>
                 </div>
-                <div>
+                <div style="flex: 1;">
                     <label for="epub_isbn">EPUB ISBN (13 digits):</label>
                     <input type="text" id="epub_isbn" name="epub_isbn" pattern="\d{13}" required>
                 </div>
@@ -41,25 +41,59 @@
 
         <div id="enhanced-fields" class="form-section" style="display: none;">
             <h2>Enhanced Information</h2>
-            <div class="form-group">
-                <label for="sender_name">Sender Name:</label>
-                <input type="text" id="sender_name" name="sender_name">
+            <div class="form-group" style="display: flex; gap: 20px;">
+                <div style="flex: 1;">
+                    <label for="sender_name">Sender Name:</label>
+                    <input type="text" id="sender_name" name="sender_name" pattern="[a-zA-Z0-9\s\-\'\.]+">
+                </div>
+                <div style="flex: 1;">
+                    <label for="contact_name">Contact Name:</label>
+                    <input type="text" id="contact_name" name="contact_name" pattern="[a-zA-Z0-9\s\-\'\.]+">
+                </div>
+                <div style="flex: 1;">
+                    <label for="email">Email Address:</label>
+                    <input type="email" id="email" name="email" required>
+                </div>
             </div>
-            <div class="form-group">
-                <label for="pricing">Pricing Information:</label>
-                <input type="text" id="pricing" name="pricing">
+            <div class="form-group" style="display: flex; gap: 20px;">
+                <div style="flex: 1;">
+                    <label for="product_composition">Product Composition:</label>
+                    <input type="text" id="product_composition" name="product_composition">
+                </div>
+                <div style="flex: 1;">
+                    <label for="product_form">Product Form:</label>
+                    <input type="text" id="product_form" name="product_form">
+                </div>
+                <div style="flex: 1;">
+                    <label for="language_code">Language Code:</label>
+                    <input type="text" id="language_code" name="language_code">
+                </div>
+            </div>
+            <div class="form-group" style="display: flex; gap: 20px;">
+                <div style="flex: 1;">
+                    <label for="price_cad">Price (CAD):</label>
+                    <input type="text" id="price_cad" name="price_cad" pattern="^\d*\.?\d{0,2}$">
+                </div>
+                <div style="flex: 1;">
+                    <label for="price_gbp">Price (GBP):</label>
+                    <input type="text" id="price_gbp" name="price_gbp" pattern="^\d*\.?\d{0,2}$">
+                </div>
+                <div style="flex: 1;">
+                    <label for="price_usd">Price (USD):</label>
+                    <input type="text" id="price_usd" name="price_usd" pattern="^\d*\.?\d{0,2}$">
+                </div>
             </div>
         </div>
 
         <div class="form-actions">
             <button type="submit" class="btn btn-primary">Generate ONIX</button>
             <button type="button" class="btn btn-secondary" onclick="window.location.href='{{ url_for('help') }}'">Help</button>
-            <button type="button" class="btn btn-secondary" onclick="window.open('https://chic-cascaron-db5ad2.netlify.app', '_blank')">Validator</button>
+            <button type="button" class="btn btn-success" style="background-color: green;" onclick="window.open('https://chic-cascaron-db5ad2.netlify.app', '_blank')">Validator</button>
         </div>
     </form>
 
     <footer>
-        <p>The record created here will pass validation against the ONIX standards. For free ONIX, sign up <a href="https://www.editeur.org/93/Release-3.0-Downloads/" target="_blank">here</a>.</p>
+        <p>The record created here will pass validation against the ONIX standards. For free ONIX, sign up <a href="https://www.deslibris.pub" target="_blank">here</a>.</p>
     </footer>
 </div>
 {% endblock %}
