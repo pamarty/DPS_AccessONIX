@@ -1,13 +1,9 @@
 {% extends "base.html" %}
 
-{% block title %}AccessONIX - ONIX Generator{% endblock %}
+{% block title %}AccessONIX - ONIX Generator for Accessible EPUBs{% endblock %}
 
 {% block content %}
 <div class="container">
-    <section class="intro">
-        <p>By merging data extracted from an accessible EPUB file with data from the print ONIX record for the title, this tool generates a "remediated" ONIX 3.0 record meeting Editeur standards.</p>
-    </section>
-
     <form id="onixForm" method="POST" action="{{ url_for('process') }}" enctype="multipart/form-data">
         <div class="form-section">
             <h2>File Upload</h2>
@@ -29,7 +25,6 @@
 
         <div class="form-section">
             <h2>Output Options</h2>
-            <p>Choose "Enhanced" to create a record that includes sender and pricing information. Choose "Basic" to create a record without this detail.</p>
             <div class="form-group">
                 <label for="role">Select Output Option:</label>
                 <select id="role" name="role" required>
@@ -39,7 +34,7 @@
             </div>
         </div>
 
-        <div id="enhanced-fields" class="form-section" style="display: none;">
+        <div id="publisher-fields" class="form-section" style="display: none;">
             <h2>Enhanced Information</h2>
             <div class="form-group" style="display: flex; gap: 20px;">
                 <div style="flex: 1;">
@@ -87,21 +82,17 @@
 
         <div class="form-actions">
             <button type="submit" class="btn btn-primary">Generate ONIX</button>
+            <div id="spinner" class="spinner" style="display: none;"></div>
             <button type="button" class="btn btn-secondary" onclick="window.location.href='{{ url_for('help') }}'">Help</button>
-            <button type="button" class="btn btn-success" style="background-color: green;" onclick="window.open('https://chic-cascaron-db5ad2.netlify.app', '_blank')">Validator</button>
         </div>
     </form>
-
-    <footer>
-        <p>The record created here will pass validation against the ONIX standards. For free ONIX, sign up <a href="https://www.deslibris.pub" target="_blank">here</a>.</p>
-    </footer>
 </div>
 {% endblock %}
 
 {% block scripts %}
 <script>
     document.getElementById('role').addEventListener('change', function () {
-        const enhancedFields = document.getElementById('enhanced-fields');
+        const enhancedFields = document.getElementById('publisher-fields');
         if (this.value === 'enhanced') {
             enhancedFields.style.display = 'block';
         } else {
@@ -109,11 +100,9 @@
         }
     });
 
-    // Allow form submission to proceed
     document.getElementById('onixForm').addEventListener('submit', function (event) {
-        event.preventDefault(); // Prevent default only for debugging
-        console.log('Form submission triggered. Ensure server endpoint is ready.');
-        this.submit(); // Proceed with actual submission
+        const spinner = document.getElementById('spinner');
+        spinner.style.display = 'inline-block';
     });
 </script>
 {% endblock %}
