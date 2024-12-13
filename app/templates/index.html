@@ -53,15 +53,45 @@
             <div class="form-group" style="display: flex; gap: 20px;">
                 <div style="flex: 1;">
                     <label for="product_composition">Product Composition:</label>
-                    <input type="text" id="product_composition" name="product_composition">
+                    <select id="product_composition" name="product_composition">
+                        <option value="00">Single-item retail product</option>
+                        <option value="01">Multiple-item retail product</option>
+                        <option value="02">Trade-only multiple-item product</option>
+                        <option value="03">Multiple-item collection, retailed as separate parts</option>
+                        <option value="04">Multiple-item trade-only product, retailed as separate parts</option>
+                        <option value="05">Multiple-item collection, retailed as a set</option>
+                        <option value="06">Multiple-item trade-only product, retailed as a set</option>
+                        <option value="07">Multiple-item product, part(s) retailed separately</option>
+                        <option value="08">Multiple-item product, all parts retailed together</option>
+                        <option value="09">Multiple-item product, retailed in any combination</option>
+                        <option value="10">Multiple-item trade-only product, retailed in any combination</option>
+                        <option value="11">Multiple-item collection, retailed as separate parts or as a set</option>
+                        <option value="20">Product with multiple components, retailed as a single item</option>
+                    </select>
                 </div>
                 <div style="flex: 1;">
                     <label for="product_form">Product Form:</label>
-                    <input type="text" id="product_form" name="product_form">
+                    <select id="product_form" name="product_form">
+                        <option value="EB">E-book</option>
+                        <option value="EC">E-book collection</option>
+                        <option value="ED">Digital download</option>
+                        <option value="EF">Online resource</option>
+                    </select>
                 </div>
                 <div style="flex: 1;">
-                    <label for="language_code">Language Code:</label>
-                    <input type="text" id="language_code" name="language_code">
+                    <label for="language_code">Language Code (ISO 639-2):</label>
+                    <select id="language_code" name="language_code">
+                        <option value="eng">English (eng)</option>
+                        <option value="fre">French (fre)</option>
+                        <option value="spa">Spanish (spa)</option>
+                        <option value="ger">German (ger)</option>
+                        <option value="ita">Italian (ita)</option>
+                        <option value="por">Portuguese (por)</option>
+                        <option value="rus">Russian (rus)</option>
+                        <option value="chi">Chinese (chi)</option>
+                        <option value="jpn">Japanese (jpn)</option>
+                        <option value="kor">Korean (kor)</option>
+                    </select>
                 </div>
             </div>
             <div class="form-group" style="display: flex; gap: 20px;">
