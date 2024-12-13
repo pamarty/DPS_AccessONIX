@@ -109,10 +109,11 @@
         }
     });
 
+    // Allow form submission to proceed
     document.getElementById('onixForm').addEventListener('submit', function (event) {
-        event.preventDefault(); // Prevent default for testing
-        alert('Form submitted successfully!'); // Placeholder for server action
-        this.submit(); // Uncomment to enable actual submission
+        event.preventDefault(); // Prevent default only for debugging
+        console.log('Form submission triggered. Ensure server endpoint is ready.');
+        this.submit(); // Proceed with actual submission
     });
 </script>
 {% endblock %}
