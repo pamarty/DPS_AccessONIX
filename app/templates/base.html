@@ -4,11 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}AccessONIX{% endblock %}</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/components.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/forms.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/utilities.css') }}">
 </head>
 <body>
     <header>
@@ -19,7 +15,6 @@
                 </a>
             </div>
             <h1 class="title">AccessONIX</h1>
-            <h2 class="subtitle">Remediate ONIX to Accessible Standards</h2>
         </div>
     </header>
 
@@ -37,16 +32,8 @@
 
     <footer>
         <p>&copy; desLibris Publishing Solutions</p>
-        <p>All AePub3 orders are supplied with AONIX. For free AONIX, sign up</p>
     </footer>
 
-    <!-- JavaScript Module Files -->
-    <script type="module" src="{{ url_for('static', filename='js/modules/form-handlers.js') }}"></script>
-    <script type="module" src="{{ url_for('static', filename='js/modules/form-validation.js') }}"></script>
-    <script type="module" src="{{ url_for('static', filename='js/modules/ui-controls.js') }}"></script>
-    <script type="module" src="{{ url_for('static', filename='js/modules/utils.js') }}"></script>
-    
-    <!-- Main JavaScript -->
     <script src="{{ url_for('static', filename='js/main.js') }}"></script>
     {% block scripts %}{% endblock %}
 </body>
