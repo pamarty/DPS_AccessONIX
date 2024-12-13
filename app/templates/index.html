@@ -4,6 +4,10 @@
 
 {% block content %}
 <div class="container">
+    <section class="intro">
+        <p>By merging data extracted from an accessible EPUB file with data from the print ONIX record for the title, this tool generates a "remediated" ONIX 3.0 record meeting Editeur standards.</p>
+    </section>
+
     <form id="onixForm" method="POST" action="{{ url_for('process') }}" enctype="multipart/form-data">
         <div class="form-section">
             <h2>File Upload</h2>
@@ -114,8 +118,13 @@
             <button type="submit" class="btn btn-primary">Generate ONIX</button>
             <div id="spinner" class="spinner" style="display: none;"></div>
             <button type="button" class="btn btn-secondary" onclick="window.location.href='{{ url_for('help') }}'">Help</button>
+            <button type="button" class="btn btn-success" style="background-color: green;" onclick="window.open('https://chic-cascaron-db5ad2.netlify.app', '_blank')">Validator</button>
         </div>
     </form>
+
+    <footer>
+        <p>The record created here will pass validation against the ONIX standards. For free ONIX, sign up <a href="https://www.deslibris.pub" target="_blank">here</a>.</p>
+    </footer>
 </div>
 {% endblock %}
 
