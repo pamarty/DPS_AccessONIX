@@ -5,7 +5,11 @@
 {% block content %}
 <div class="container">
     <section class="intro">
-        <p>By merging data extracted from an accessible EPUB file with data from the print ONIX record for the title, this tool generates a "remediated" ONIX 3.0 record meeting Editeur standards.</p>
+        <p>To address the need for ONIX which reflects the accessibility features in Accessible EPUB3, DPS provides AccessONIX. 
+By merging data extracted from the EPUB file with data from the print ONIX record for the title, this tool generates a "remediated" ONIX 3.0 record. 
+Use "File Upload" to upload the ePub to be described and the original ONIX record in .xml form. 
+Click "Generate" to create a new ONIX record in the default "Basic" form. 
+The "Enhanced" option allows for the addition of ONIX elements for supply chain use.</p>
     </section>
 
     <form id="onixForm" method="POST" action="{{ url_for('process') }}" enctype="multipart/form-data">
@@ -29,6 +33,7 @@
 
         <div class="form-section">
             <h2>Output Options</h2>
+            <p>Choose "Enhanced" to create a record which includes sender, product and pricing information. Choose "Basic" to create a record without these details.</p>
             <div class="form-group">
                 <label for="role">Select Output Option:</label>
                 <select id="role" name="role" required>
@@ -118,12 +123,14 @@
             <button type="submit" class="btn btn-primary">Generate ONIX</button>
             <div id="spinner" class="spinner" style="display: none;"></div>
             <button type="button" class="btn btn-secondary" onclick="window.location.href='{{ url_for('help') }}'">Help</button>
-            <button type="button" class="btn btn-success" style="background-color: green;" onclick="window.open('https://chic-cascaron-db5ad2.netlify.app', '_blank')">Validator</button>
+            <button type="button" class="btn btn-success" style="background-color: green; color: white;" onclick="window.open('https://chic-cascaron-db5ad2.netlify.app', '_blank')">Validator</button>
         </div>
     </form>
 
     <footer>
         <p>The record created here will pass validation against the ONIX standards. For free ONIX, sign up <a href="https://www.deslibris.pub" target="_blank">here</a>.</p>
+        <p>AccessONIX is free for use by any DPS client, where it may be used without charge to create remediated ONIX for backlist. 
+For frontlist conversions supplied by DPS, remediated ONIX is included in the conversion price.</p>
     </footer>
 </div>
 {% endblock %}
