@@ -5,7 +5,11 @@
 {% block content %}
 <div class="container">
     <section class="intro">
-        <p>To help publishers create ONIX records that accurately reflect the accessibility features of Accessible EPUB3, DPS offers AccessONIX. This tool merges data extracted from the EPUB file with the title's original ONIX record (in .xml format) to produce a "remediated" ONIX 3.0 record. Simply upload the ePub file and the corresponding ONIX record using the "File Upload" feature, then click "Generate" to create a new ONIX record in the default "Basic" format. For more detailed supply chain information, the "Enhanced" option allows for additional ONIX elements to be included.</p>
+        <p>To address the need for ONIX which reflects the accessibility features in Accessible EPUB3, DPS provides AccessONIX. 
+By merging data extracted from the EPUB file with data from the print ONIX record for the title, this tool generates a "remediated" ONIX 3.0 record. 
+Use "File Upload" to upload the ePub to be described and the original ONIX record in .xml form. 
+Click "Generate" to create a new ONIX record in the default "Basic" form. 
+The "Enhanced" option allows for the addition of ONIX elements for supply chain use.</p>
     </section>
 
     <form id="onixForm" method="POST" action="{{ url_for('process') }}" enctype="multipart/form-data">
