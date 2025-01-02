@@ -15,84 +15,51 @@ from .processors import (
 
 logger = logging.getLogger(__name__)
 
-def get_original_version(root):
-    """Detect ONIX version from input file"""
-    xmlns = root.get('xmlns')
-    if xmlns:
-        if 'onix/3.0' in xmlns:
-            return '3.0', True
-        elif 'onix/2.1' in xmlns:
-            return '2.1', True
-    
-    header = root.find('Header') or root.find('header')
-    if header is not None:
-        release = header.find('Release') or header.find('release')
-        if release is not None:
-            return release.text, True
-    
-    if root.find('.//ProductComposition') is not None:
-        return '3.0', True
-    
-    if root.find('.//a001') is not None:
-        return '2.1', False
-    
-    return '2.1', True
-
 def process_onix(epub_features, xml_content, epub_isbn, publisher_data=None):
     """Process ONIX content"""
     try:
-        parser = etree.XMLParser(remove_blank_text=True)
-        tree = etree.fromstring(xml_content, parser)
-        logger.info(f"XML parsed successfully. Root tag: {tree.tag}")
-
-        original_version, is_reference = get_original_version(tree)
-
         # Create new ONIX 3.0 document
-        new_root = etree.Element('ONIXMessage', nsmap=NSMAP)
-        new_root.set("release", "3.0")
+        root = etree.Element('ONIXMessage', nsmap=NSMAP)
+        root.set('release', '3.0')
 
         # Process header
-        process_header(tree, new_root, original_version, publisher_data)
-
-        # Process products
-        if tree.tag.endswith('Product') or tree.tag == 'Product':
-            process_product(tree, new_root, epub_features, epub_isbn, publisher_data)
+        header = etree.SubElement(root, 'Header')
+        sender = etree.SubElement(header, 'Sender')
+        
+        if publisher_data:
+            if publisher_data.get('sender_name'):
+                etree.SubElement(sender, 'SenderName').text = publisher_data['sender_name']
+            if publisher_data.get('contact_name'):
+                etree.SubElement(sender, 'ContactName').text = publisher_data['contact_name']
+            if publisher_data.get('email'):
+                etree.SubElement(sender, 'EmailAddress').text = publisher_data['email']
         else:
-            products = tree.xpath('.//*[local-name() = "Product"]')
-            if products:
-                for old_product in products:
-                    process_product(old_product, new_root, epub_features, epub_isbn, publisher_data)
+            etree.SubElement(sender, 'SenderName').text = "Default Sender"
+            
+        etree.SubElement(header, 'SentDateTime').text = datetime.now().strftime("%Y%m%dT%H%M%S")
+        etree.SubElement(header, 'MessageNote').text = "This file was remediated to include accessibility information"
 
-        # Preserve any additional elements not handled by specific processors
-        preserve_additional_elements(tree, new_root)
+        # Process product
+        product = etree.SubElement(root, 'Product')
+        
+        # Add required product elements
+        etree.SubElement(product, 'RecordReference').text = epub_isbn
+        etree.SubElement(product, 'NotificationType').text = '03'
+        
+        # Add product identifiers
+        identifier = etree.SubElement(product, 'ProductIdentifier')
+        etree.SubElement(identifier, 'ProductIDType').text = '15'
+        etree.SubElement(identifier, 'IDValue').text = epub_isbn
+        
+        # Process main sections
+        descriptive_detail = process_descriptive_detail(product, epub_features, publisher_data)
+        collateral_detail = process_collateral_detail(product)
+        publishing_detail = process_publishing_detail(product, publisher_data)
+        product_supply = process_product_supply(product, publisher_data)
 
-        return etree.tostring(new_root, pretty_print=True, xml_declaration=True, encoding='utf-8')
+        return etree.tostring(root, pretty_print=True, xml_declaration=True, encoding='utf-8')
 
     except Exception as e:
         logger.error(f"Error processing ONIX: {str(e)}")
         logger.error(traceback.format_exc())
         raise
-
-def preserve_additional_elements(old_root, new_root):
-    """Preserve any additional elements not handled by specific processors"""
-    for elem in old_root:
-        # Skip elements that are handled by specific processors
-        if elem.tag not in ['Header', 'Product']:
-            # Copy element and all its children
-            new_elem = etree.SubElement(new_root, elem.tag)
-            if elem.text and elem.text.strip():
-                new_elem.text = elem.text
-            for key, value in elem.attrib.items():
-                new_elem.set(key, value)
-            for child in elem:
-                preserve_element_tree(child, new_elem)
-
-def preserve_element_tree(elem, parent):
-    """Recursively preserve element and all its children"""
-    new_elem = etree.SubElement(parent, elem.tag)
-    if elem.text and elem.text.strip():
-        new_elem.text = elem.text
-    for key, value in elem.attrib.items():
-        new_elem.set(key, value)
-    for child in elem:
-        preserve_element_tree(child, new_elem)
