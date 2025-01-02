@@ -63,9 +63,36 @@ def process_onix(epub_features, xml_content, epub_isbn, publisher_data=None):
                 for old_product in products:
                     process_product(old_product, new_root, epub_features, epub_isbn, publisher_data)
 
+        # Preserve any additional elements not handled by specific processors
+        preserve_additional_elements(tree, new_root)
+
         return etree.tostring(new_root, pretty_print=True, xml_declaration=True, encoding='utf-8')
 
     except Exception as e:
         logger.error(f"Error processing ONIX: {str(e)}")
         logger.error(traceback.format_exc())
         raise
+
+def preserve_additional_elements(old_root, new_root):
+    """Preserve any additional elements not handled by specific processors"""
+    for elem in old_root:
+        # Skip elements that are handled by specific processors
+        if elem.tag not in ['Header', 'Product']:
+            # Copy element and all its children
+            new_elem = etree.SubElement(new_root, elem.tag)
+            if elem.text and elem.text.strip():
+                new_elem.text = elem.text
+            for key, value in elem.attrib.items():
+                new_elem.set(key, value)
+            for child in elem:
+                preserve_element_tree(child, new_elem)
+
+def preserve_element_tree(elem, parent):
+    """Recursively preserve element and all its children"""
+    new_elem = etree.SubElement(parent, elem.tag)
+    if elem.text and elem.text.strip():
+        new_elem.text = elem.text
+    for key, value in elem.attrib.items():
+        new_elem.set(key, value)
+    for child in elem:
+        preserve_element_tree(child, new_elem)
