@@ -1,3 +1,4 @@
+"""Main ONIX processing module"""
 import logging
 import traceback
 from lxml import etree
@@ -58,12 +59,17 @@ def process_product_identifiers(old_product, product, epub_isbn):
         # Preserve any other identifiers from original
         for old_id in old_product.findall('.//ProductIdentifier'):
             id_type_text = old_id.findtext('ProductIDType')
-            if id_type_text not in ['02', '03']:  # Skip ISBNs already handled
-                identifier = etree.SubElement(product, 'ProductIdentifier')
-                id_type = etree.SubElement(identifier, 'ProductIDType')
-                id_type.text = id_type_text
-                id_value = etree.SubElement(identifier, 'IDValue')
-                id_value.text = old_id.findtext('IDValue')
+            id_value_text = old_id.findtext('IDValue')
+            
+            # Skip if already processed or empty
+            if not id_value_text or id_type_text in ['02', '03']:
+                continue
+                
+            identifier = etree.SubElement(product, 'ProductIdentifier')
+            id_type = etree.SubElement(identifier, 'ProductIDType')
+            id_type.text = id_type_text
+            id_value = etree.SubElement(identifier, 'IDValue')
+            id_value.text = id_value_text
                 
     except Exception as e:
         logger.error(f"Error processing product identifiers: {str(e)}")
@@ -74,7 +80,7 @@ def process_work_identifier(old_product, work_id):
     try:
         work_id_type = etree.SubElement(work_id, 'WorkIDType')
         work_id_type.text = old_product.findtext('.//WorkIDType')
-        id_value = etree.SubElement(work_id, 'IDValue') 
+        id_value = etree.SubElement(work_id, 'IDValue')
         id_value.text = old_product.findtext('.//IDValue')
     except Exception as e:
         logger.error(f"Error processing work identifier: {str(e)}")
@@ -83,10 +89,13 @@ def process_work_identifier(old_product, work_id):
 def process_product_website(old_product, website):
     """Process ProductWebsite composite"""
     try:
-        role = etree.SubElement(website, 'WebsiteRole')
-        role.text = old_product.findtext('.//WebsiteRole')
-        link = etree.SubElement(website, 'ProductWebsiteLink')
-        link.text = old_product.findtext('.//ProductWebsiteLink')
+        if old_product.find('.//WebsiteRole') is not None:
+            role = etree.SubElement(website, 'WebsiteRole')
+            role.text = old_product.findtext('.//WebsiteRole')
+        
+        if old_product.find('.//ProductWebsiteLink') is not None:
+            link = etree.SubElement(website, 'ProductWebsiteLink')
+            link.text = old_product.findtext('.//ProductWebsiteLink')
     except Exception as e:
         logger.error(f"Error processing product website: {str(e)}")
         raise
@@ -144,6 +153,120 @@ def process_supply_detail(old_supply, product_supply):
         logger.error(f"Error processing supply detail: {str(e)}")
         raise
 
+def process_accessibility_features(epub_features, descriptive_detail):
+    """Process accessibility features into ProductFormFeature composites"""
+    for code, enabled in epub_features.items():
+        if enabled:
+            feature = etree.SubElement(descriptive_detail, 'ProductFormFeature')
+            feature_type = etree.SubElement(feature, 'ProductFormFeatureType')
+            feature_type.text = '09'  # Accessibility feature
+            feature_value = etree.SubElement(feature, 'ProductFormFeatureValue')
+            feature_value.text = code
+            
+            # Add description for specific features
+            if code == '0':  # Accessibility summary
+                desc = etree.SubElement(feature, 'ProductFormFeatureDescription')
+                desc.text = generate_accessibility_summary(epub_features)
+            elif code in ['22', '24', '26']:  # Special features needing description
+                desc = etree.SubElement(feature, 'ProductFormFeatureDescription')
+                desc.text = get_feature_description(code)
+
+def generate_accessibility_summary(features):
+    """Generate comprehensive accessibility summary"""
+    summary_parts = []
+    
+    if features.get('4'):
+        summary_parts.append("Meets EPUB Accessibility Specification 1.1")
+    if features.get('85'):
+        summary_parts.append("WCAG 2.1 Level AA compliant")
+    if features.get('52'):
+        summary_parts.append("Supports reading without sight")
+    if features.get('24'):
+        summary_parts.append("Includes dyslexia readability features")
+    
+    summary = ". ".join(summary_parts)
+    return summary if summary else "Basic accessibility features supported"
+
+def get_feature_description(code):
+    """Get description for specific accessibility features"""
+    descriptions = {
+        '22': 'Language tagging provided',
+        '24': 'Dyslexia readability',
+        '26': 'Use of high contrast between text and background color'
+    }
+    return descriptions.get(code, '')
+
+def analyze_accessibility_features(value, accessibility_info):
+    """Analyze accessibility features from metadata"""
+    feature_mapping = {
+        'tableofcontents': '11',
+        'index': '12',
+        'readingorder': '13',
+        'alternativetext': '14',
+        'longdescription': '15',
+        'alternativerepresentation': '16',
+        'mathml': '17',
+        'chemml': '18',
+        'printpagenumbers': '19',
+        'pagenumbers': '19',
+        'pagebreaks': '19',
+        'synchronizedaudiotext': '20',
+        'ttsmarkup': '21',
+        'displaytransformability': '24',
+        'fontcustomization': '24',
+        'textspacing': '24',
+        'colorcustomization': '24',
+        'texttospeech': '24',
+        'readingtools': '24',
+        'highcontrast': '26',
+        'colorcontrast': '26',
+        'audiocontrast': '27',
+        'fullaudiodescription': '28',
+        'structuralnavigation': '29',
+        'aria': '30',
+        'accessibleinterface': '31',
+        'accessiblecontrols': '31',
+        'accessiblenavigation': '31',
+        'landmarks': '32',
+        'landmarknavigation': '32',
+        'chemistryml': '34',
+        'latex': '35',
+        'modifiabletextsize': '36',
+        'ultracolorcontrast': '37',
+        'glossary': '38',
+        'accessiblesupplementarycontent': '39',
+        'linkpurpose': '40'
+    }
+    
+    for key, code in feature_mapping.items():
+        if key in value:
+            accessibility_info[code] = True
+            logger.info(f"Accessibility feature detected: {key}")
+
+def analyze_additional_metadata(property, value, accessibility_info):
+    """Analyze additional metadata properties"""
+    if 'accessibilityhazard' in property and 'none' in value:
+        accessibility_info['36'] = True
+        logger.info("All textual content can be modified")
+    
+    if 'certifiedby' in property:
+        accessibility_info['93'] = True
+        logger.info("Compliance certification detected")
+    
+    if ('accessibilityapi' in property or 
+        'a11y:certifierReport' in property or 
+        ('accessibility' in property and value.startswith('http'))):
+        accessibility_info['94'] = True
+        logger.info(f"Compliance web page detected: {value}")
+    
+    if 'accessmode' in property or 'accessmodesufficient' in property:
+        if 'textual' in value:
+            accessibility_info['52'] = True
+            logger.info("All non-decorative content supports reading without sight")
+        if 'auditory' in value:
+            accessibility_info['51'] = True
+            logger.info("All non-decorative content supports reading via pre-recorded audio")
+
 def process_product(old_product, new_root, epub_features, epub_isbn, publisher_data):
     """Process complete product composite"""
     try:
@@ -170,8 +293,12 @@ def process_product(old_product, new_root, epub_features, epub_isbn, publisher_d
             website = etree.SubElement(product, 'ProductWebsite')
             process_product_website(old_product, website)
 
-        # Process core details
-        process_descriptive_detail(old_product, product, epub_features)
+        # Process descriptive detail with accessibility features
+        descriptive_detail = etree.SubElement(product, 'DescriptiveDetail')
+        process_descriptive_detail(old_product, descriptive_detail)
+        process_accessibility_features(epub_features, descriptive_detail)
+        
+        # Process other core details
         process_collateral_detail(old_product, product)
         process_publishing_detail(old_product, product, publisher_data)
         
@@ -218,7 +345,10 @@ def validate_output(old_product, new_product):
         'NumberOfPages',
         'Extent',
         'Illustrations',
-        'MainSubject'
+        'MainSubject',
+        'DescriptiveDetail',
+        'CollateralDetail',
+        'PublishingDetail'
     ]
     
     for field in critical_fields:
