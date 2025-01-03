@@ -1,6 +1,7 @@
 import os
 import logging
-from flask import Flask, render_template, request, send_file, flash, redirect, url_for
+import traceback
+from flask import Flask, render_template, request, send_file, flash, redirect, url_for, make_response
 from werkzeug.utils import secure_filename
 from .utils.epub_analyzer import analyze_epub
 from .utils.onix_processor import process_onix
@@ -85,19 +86,11 @@ def process():
         final_memory = log_memory_usage()
         logger.info(f"Final memory usage: {final_memory:.2f} MB")
 
-        # Save and return processed file
-        output_filename = f"AccessONIX_{epub_isbn}.xml"
-        output_path = os.path.join(app.config['UPLOAD_FOLDER'], output_filename)
-        
-        with open(output_path, 'wb') as f:
-            f.write(processed_xml)
+        # Return the processed XML as a response
+        response = make_response(processed_xml)
+        response.headers['Content-Type'] = 'application/xml'
+        return response
 
-        return send_file(
-            output_path,
-            mimetype='application/xml',
-            as_attachment=True,
-            download_name=output_filename
-        )
 
     except Exception as e:
         logger.error(f"Error during processing: {str(e)}")
