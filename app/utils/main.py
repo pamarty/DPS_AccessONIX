@@ -74,6 +74,8 @@ def process():
                 'price_usd': request.form.get('price_usd')
             }
 
+        # Debugging statements
+        print(f"Before process_onix, epub_features: {epub_features}, epub_isbn: {epub_isbn}")
         # Process ONIX with publisher data
         processed_xml = process_onix(
             epub_features=epub_features,
@@ -82,9 +84,8 @@ def process():
             publisher_data=publisher_data
         )
 
-        # Log final memory usage
-        final_memory = log_memory_usage()
-        logger.info(f"Final memory usage: {final_memory:.2f} MB")
+        # Debugging statements
+        print(f"After process_onix, type of processed_xml: {type(processed_xml)}")
 
         # Return the processed XML as a response
         response = make_response(processed_xml)
