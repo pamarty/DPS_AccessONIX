@@ -1,7 +1,6 @@
 import os
 import logging
-import traceback
-from flask import Flask, render_template, request, send_file, flash, redirect, url_for, make_response
+from flask import Flask, render_template, request, send_file, flash, redirect, url_for
 from werkzeug.utils import secure_filename
 from .utils.epub_analyzer import analyze_epub
 from .utils.onix_processor import process_onix
@@ -32,43 +31,32 @@ def process():
         # Log initial memory usage
         initial_memory = log_memory_usage()
         logger.info(f"Initial memory usage: {initial_memory:.2f} MB")
-        print("After initial memory check")
 
         # Check if files were uploaded
         if 'epub_file' not in request.files or 'onix_file' not in request.files:
-            print("No files uploaded detected")
             flash('No files uploaded', 'error')
             return redirect(url_for('index'))
-        print("After file presence check")
 
         epub_file = request.files['epub_file']
         onix_file = request.files['onix_file']
         epub_isbn = request.form.get('epub_isbn', '')
         role = request.form.get('role', 'basic')
-        print("After getting form values")
-
 
         # Validate files
         if epub_file.filename == '' or onix_file.filename == '':
-            print("No files selected")
             flash('No selected files', 'error')
             return redirect(url_for('index'))
 
         if not allowed_file(epub_file.filename, {'epub'}) or not allowed_file(onix_file.filename, {'xml'}):
-            print("Invalid file type")
             flash('Invalid file type', 'error')
             return redirect(url_for('index'))
-        print("After validating file types")
 
         # Process EPUB file
         logger.info(f"Analyzing EPUB file: {epub_file.filename}")
-        print("Before analyze_epub")
         epub_features = analyze_epub(epub_file)
-        print("After analyze_epub")
 
         # Process ONIX file
         logger.info(f"Processing ONIX file: {onix_file.filename}")
-        print("After logging ONIX file")
         
         # Get publisher data if in enhanced mode
         publisher_data = None
@@ -84,10 +72,7 @@ def process():
                 'price_gbp': request.form.get('price_gbp'),
                 'price_usd': request.form.get('price_usd')
             }
-        print("After getting publisher data")
 
-        # Debugging statements
-        print(f"Before process_onix, epub_features: {epub_features}, epub_isbn: {epub_isbn}")
         # Process ONIX with publisher data
         processed_xml = process_onix(
             epub_features=epub_features,
@@ -96,14 +81,23 @@ def process():
             publisher_data=publisher_data
         )
 
-        # Debugging statements
-        print(f"After process_onix, type of processed_xml: {type(processed_xml)}")
+        # Log final memory usage
+        final_memory = log_memory_usage()
+        logger.info(f"Final memory usage: {final_memory:.2f} MB")
 
-        # Return the processed XML as a response
-        response = make_response(processed_xml)
-        response.headers['Content-Type'] = 'application/xml'
-        return response
+        # Save and return processed file
+        output_filename = f"AccessONIX_{epub_isbn}.xml"
+        output_path = os.path.join(app.config['UPLOAD_FOLDER'], output_filename)
+        
+        with open(output_path, 'wb') as f:
+            f.write(processed_xml)
 
+        return send_file(
+            output_path,
+            mimetype='application/xml',
+            as_attachment=True,
+            download_name=output_filename
+        )
 
     except Exception as e:
         logger.error(f"Error during processing: {str(e)}")
