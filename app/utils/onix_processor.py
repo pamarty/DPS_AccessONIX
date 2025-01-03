@@ -6,7 +6,6 @@ from datetime import datetime
 from .onix_constants import ONIX_30_NS, NSMAP, DEFAULT_LANGUAGE_CODE
 from .processors import (
     process_header,
-    process_descriptive_detail,
     process_collateral_detail,
     process_publishing_detail,
     process_product_supply
@@ -266,6 +265,21 @@ def analyze_additional_metadata(property, value, accessibility_info):
         if 'auditory' in value:
             accessibility_info['51'] = True
             logger.info("All non-decorative content supports reading via pre-recorded audio")
+
+
+def process_descriptive_detail(old_product, descriptive_detail):
+    """Process descriptive detail composite"""
+    try:
+         # Copy over all child elements from old to new
+        for element in old_product.find('DescriptiveDetail'):
+            new_element = etree.SubElement(descriptive_detail, element.tag)
+            new_element.text = element.text
+            for attr, value in element.attrib.items():
+                new_element.set(attr, value)
+    except Exception as e:
+         logger.error(f"Error processing descriptive detail: {str(e)}")
+         raise
+    
 
 def process_product(old_product, new_root, epub_features, epub_isbn, publisher_data):
     """Process complete product composite"""
