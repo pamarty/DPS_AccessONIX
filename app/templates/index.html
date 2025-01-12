@@ -5,23 +5,24 @@
 {% block content %}
 <div class="container">
     <section class="intro">
-        <p>To help publishers create ONIX records that accurately reflect the accessibility features of Accessible EPUB3, DPS offers AccessONIX. This tool merges data extracted from the EPUB file with the title's original ONIX record (in .xml format) to produce a "remediated" ONIX 3.0 record. Simply upload the ePub file and the corresponding ONIX record using the "File Upload" feature, then click "Generate" to create a new ONIX record in the default "Basic" format. For more detailed supply chain information, the "Enhanced" option allows for additional ONIX elements to be included.</p>
+        <h2 style="text-align: center; font-weight: bold;">Improve discoverability by accurately reflecting Accessible EPUB3 features in the ONIX record.</h2>
+        <p>This unique tool merges data extracted from a Certified Accessible EPUB3 file with the title's original ONIX record to produce a "remediated" ONIX 3. The generated ONIX record will bear a filename format similar to AccessONIX_[ISBN]_[Date]_[Timestamp].</p>
     </section>
 
     <form id="onixForm" method="POST" action="{{ url_for('process') }}" enctype="multipart/form-data">
         <div class="form-section">
-            <h2>File Upload</h2>
+            <h2>File Upload <span style="color: red;">*</span></h2>
             <div class="form-group file-upload-columns" style="display: flex; gap: 20px;">
                 <div style="flex: 1;">
-                    <label for="epub_file">Upload Accessible EPUB:</label>
+                    <label for="epub_file">Upload Accessible EPUB <span style="color: red;">*</span>:</label>
                     <input type="file" id="epub_file" name="epub_file" accept=".epub" required>
                 </div>
                 <div style="flex: 1;">
-                    <label for="onix_file">Upload ONIX XML:</label>
+                    <label for="onix_file">Upload ONIX XML <span style="color: red;">*</span>:</label>
                     <input type="file" id="onix_file" name="onix_file" accept=".xml" required>
                 </div>
                 <div style="flex: 1;">
-                    <label for="epub_isbn">EPUB ISBN (13 digits):</label>
+                    <label for="epub_isbn">EPUB ISBN (13 digits) <span style="color: red;">*</span>:</label>
                     <input type="text" id="epub_isbn" name="epub_isbn" pattern="\d{13}" required>
                 </div>
             </div>
@@ -29,7 +30,7 @@
 
         <div class="form-section">
             <h2>Output Options</h2>
-            <p>Choose "Enhanced" to create a record which includes sender, product and pricing information. Choose "Basic" to create a record without these details.</p>
+            <p>Choose "Enhanced" to create a record which includes sender, product, and pricing information. Choose "Basic" to create a record without these details. The default option is <b>Basic</b>.</p>
             <div class="form-group">
                 <label for="role">Select Output Option:</label>
                 <select id="role" name="role" required>
@@ -124,9 +125,12 @@
     </form>
 
     <footer>
-        <p>The record created here will pass validation against the ONIX standards. For free ONIX, sign up <a href="https://www.deslibris.pub" target="_blank">here</a>.</p>
-        <p>AccessONIX is free for use by any DPS client, where it may be used without charge to create remediated ONIX for backlist. 
-For frontlist conversions supplied by DPS, remediated ONIX is included in the conversion price.</p>
+        <p>The record created here will meet current ONIX standards. For free ONIX, sign up <a href="https://www.deslibris.pub" target="_blank">here</a>.</p>
+        <p>AccessONIX is free for use by any DPS client, where it may be used without charge to create remediated ONIX for backlist. Remediated ONIX is included in the conversion price for frontlist conversions supplied by DPS.</p>
+        <div style="display: flex; justify-content: center; gap: 20px; margin-top: 20px;">
+            <button type="button" class="btn btn-success" style="background-color: green; color: white;" onclick="window.open('https://support.deslibris.pub/portal/en/kb/articles/accessonix-rev', '_blank')">The Need for Remediated ONIX</button>
+            <button type="button" class="btn btn-success" style="background-color: green; color: white;" onclick="window.open('https://www.deslibris.pub/sign-up', '_blank')">Open a DPS Account for Free Remediated ONIX</button>
+        </div>
     </footer>
 </div>
 {% endblock %}
@@ -145,6 +149,8 @@ For frontlist conversions supplied by DPS, remediated ONIX is included in the co
     document.getElementById('onixForm').addEventListener('submit', function (event) {
         const spinner = document.getElementById('spinner');
         spinner.style.display = 'inline-block';
+        alert('ONIX record is being generated. Please wait...');
     });
 </script>
 {% endblock %}
+
