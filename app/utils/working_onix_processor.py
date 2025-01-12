@@ -168,9 +168,6 @@ def get_original_version(root):
 
 def process_header(tree, new_root, original_version, publisher_data):
     """Process header information"""
-    # Add debug logging
-    print("DEBUG: Processing header with publisher data:", publisher_data)
-    
     header = etree.SubElement(new_root, 'Header')
     
     # Add sender information
@@ -183,9 +180,9 @@ def process_header(tree, new_root, original_version, publisher_data):
         if publisher_data.get('contact_name'):
             contact_name = etree.SubElement(sender, 'ContactName')
             contact_name.text = publisher_data['contact_name']
-        if publisher_data.get('email'):  # Changed from email_address to email to match the data
+        if publisher_data.get('email_address'):
             email = etree.SubElement(sender, 'EmailAddress')
-            email.text = publisher_data['email']
+            email.text = publisher_data['email_address']
     else:
         # Add default SenderName for basic option
         sender_name = etree.SubElement(sender, 'SenderName')
@@ -1316,15 +1313,12 @@ def process_onix_file(input_path, output_path, epub_features=None, epub_isbn=Non
         with open(output_path, 'wb') as f:
             f.write(output_content)
 
-        # Add debug logging
-        print("DEBUG: Publisher data received:", publisher_data)
-    
         print(f"Successfully processed ONIX file from {input_path} to {output_path}")
 
     except Exception as e:
         print(f"Error processing ONIX file: {e}")
         raise
-    
+
 def validate_onix_output(xml_content):
     """Validate the generated ONIX output"""
     try:
