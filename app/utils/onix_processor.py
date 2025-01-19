@@ -1,6 +1,7 @@
 """Main ONIX processing module with corrected element ordering and validation fixes"""
 import logging
 import traceback
+import copy  # Add this at the top with other imports
 from lxml import etree
 from datetime import datetime
 
@@ -64,11 +65,12 @@ DESCRIPTIVE_DETAIL_ORDER = [
     'PrimaryContentType',
     'ProductContentType',
     'EpubTechnicalProtection',
-    'EpubUsageConstraint',
+    'EpubUsageConstraint', 
     'EpubLicense',
     'MapScale',
     'ProductClassification',
     'ProductPart',
+    'Collection',
     'TitleDetail',
     'ThesisType',
     'Contributor',
@@ -79,12 +81,10 @@ DESCRIPTIVE_DETAIL_ORDER = [
     'EditionNumber',
     'EditionStatement',
     'NoEdition',
-    'Collection',
-    'NoCollection',
-    'Measure',
-    'CountryOfManufacture',
     'Language',
     'Extent',
+    'Illustrations',
+    'AncillaryContent',  # Moved before Subject
     'Subject',
     'AudienceCode',
     'Audience',
@@ -148,6 +148,66 @@ SUPPLY_DETAIL_ORDER = [
 ]
 
 logger = logging.getLogger(__name__)
+
+def get_resource_mode(content_type):
+    """
+    Map content types to appropriate resource modes
+    01 = website -> mode 04 (interactive)
+    04 = front cover -> mode 03 (image)
+    08 = product image -> mode 03 (image)
+    """
+    mode_mapping = {
+        '01': '04',  # websites are interactive
+        '04': '03',  # front cover is an image
+        '08': '03',  # product image is an image
+    }
+    return mode_mapping.get(content_type, '03')  # default to '03' if not found
+
+def convert_onix2_to_onix3(root):
+    """Convert ONIX 2.1 XML to ONIX 3.0"""
+    new_root = etree.Element("ONIXMessage", xmlns="http://ns.editeur.org/onix/3.0/reference", release="3.0")
+    
+    # Convert Header
+    header = convert_header(root.find('Header'))
+    new_root.append(header)
+    
+    # Convert each Product
+    for product in root.findall('Product'):
+        new_product = etree.SubElement(new_root, 'Product')
+        
+        # Convert basic elements
+        for tag in ['RecordReference', 'NotificationType', 'RecordSourceType', 'RecordSourceName']:
+            elem = product.find(tag)
+            if elem is not None and elem.text:
+                new_elem = etree.SubElement(new_product, tag)
+                new_elem.text = elem.text
+        
+        # Convert ProductIdentifier elements
+        for pid in product.findall('ProductIdentifier'):
+            new_product.append(convert_product_identifier(pid))
+            
+        # Create DescriptiveDetail
+        descriptive_detail = create_descriptive_detail(product)
+        new_product.append(descriptive_detail)
+        
+        # Create CollateralDetail
+        collateral_detail = create_collateral_detail(product)
+        new_product.append(collateral_detail)
+        
+        # Create PublishingDetail
+        publishing_detail = create_publishing_detail(product)
+        new_product.append(publishing_detail)
+        
+        # Create RelatedMaterial
+        related_material = create_related_material(product)
+        new_product.append(related_material)
+        
+        # Create ProductSupply
+        product_supply = create_product_supply(product)
+        new_product.append(product_supply)
+    
+    return new_root
+
 
 def get_original_version(root):
     """Detect ONIX version from input file"""
@@ -252,6 +312,17 @@ def create_website_element(url=None, role=None, description=None):
 
 def create_price_composite(price_element):
     """Create Price composite with correct element order"""
+    # If no price element was provided, create a default one
+    if price_element is None:
+        price_element = etree.Element('Price')
+        # Add minimum required elements
+        price_type = etree.SubElement(price_element, 'PriceTypeCode')
+        price_type.text = '01'  # Default to RRP excluding tax
+        price_amount = etree.SubElement(price_element, 'PriceAmount')
+        price_amount.text = '0.00'  # Default to zero price
+        currency = etree.SubElement(price_element, 'CurrencyCode')
+        currency.text = 'USD'  # Default to USD
+    
     price = etree.Element('Price')
     
     # Process elements in correct order
@@ -383,31 +454,47 @@ def create_measures(parent, old_product):
 
 def create_contributor(parent, old_contributor):
     """Create Contributor elements with proper name identifier structure"""
-    new_contributor = etree.SubElement(parent, 'Contributor')
+    new_contributor = etree.Element('Contributor')
+    
+    # Define the correct order of elements for ONIX 3.0
+    element_order = [
+        'SequenceNumber',
+        'ContributorRole',
+        'PersonName',
+        'PersonNameInverted', 
+        'NamesBeforeKey',
+        'KeyNames',
+        'BiographicalNote',
+        'Website'
+    ]
+    
+    # Create a temporary dictionary to store elements
+    elements = {}
     
     # Process each child element
     for child in old_contributor:
-        if child.tag == 'PersonNameIdentifier':
-            # Convert PersonNameIdentifier to NameIdentifier
-            if any(c.text for c in child):  # Only create if there's content
-                name_id = etree.SubElement(new_contributor, 'NameIdentifier')
-                for id_child in child:
-                    if id_child.tag == 'PersonNameIDType':
-                        id_type = etree.SubElement(name_id, 'NameIDType')
-                        id_type.text = id_child.text
-                    elif id_child.tag == 'IDValue':
-                        id_value = etree.SubElement(name_id, 'IDValue')
-                        id_value.text = id_child.text
-        elif child.tag == 'Website':
-            if child.find('WebsiteRole') is not None:
-                new_contributor.append(child)
-            else:
-                website = create_website_element()
-                new_contributor.append(website)
-        else:
+        if child.tag == 'Website':
+            website = etree.Element('Website')
+            for web_child in child:
+                if web_child.tag == 'WebsiteRole':
+                    role = etree.SubElement(website, 'WebsiteRole')
+                    role.text = web_child.text
+                elif web_child.tag == 'WebsiteLink':
+                    link = etree.SubElement(website, 'WebsiteLink')
+                    link.text = web_child.text
+            elements['Website'] = website
+        elif child.tag not in ['PersonNameIdentifier', 'NameIdentifier', 'CountryCode']:  # Skip invalid elements
             if child.text:  # Only create element if there's content
-                new_child = etree.SubElement(new_contributor, child.tag)
+                new_child = etree.Element(child.tag)
                 new_child.text = child.text
+                elements[child.tag] = new_child
+    
+    # Add elements in the correct order
+    for tag in element_order:
+        if tag in elements:
+            new_contributor.append(elements[tag])
+    
+    return new_contributor
 
 def create_publishing_status(parent, old_product):
     status = etree.SubElement(parent, 'PublishingStatus')
@@ -492,9 +579,26 @@ def create_title_element(old_product):
     level = etree.SubElement(title_element, 'TitleElementLevel')
     level.text = '01'  # Product level
     
-    # Add TitleText
-    title_text = etree.SubElement(title_element, 'TitleText')
-    title_text.text = "The Theology of Burning Coals"  # Replace with actual title if available
+    # Get title from old product
+    old_title = old_product.find('Title')
+    if old_title is not None:
+        # Add TitleText
+        title_text = old_title.find('TitleText')
+        if title_text is not None and title_text.text:
+            new_title_text = etree.SubElement(title_element, 'TitleText')
+            new_title_text.text = title_text.text
+        
+        # Add Subtitle if present
+        subtitle = old_title.find('Subtitle')
+        if subtitle is not None and subtitle.text:
+            new_subtitle = etree.SubElement(title_element, 'Subtitle')
+            new_subtitle.text = subtitle.text
+    else:
+        # Fallback to TitleText directly under Product
+        title_text = old_product.find('TitleText')
+        if title_text is not None and title_text.text:
+            new_title_text = etree.SubElement(title_element, 'TitleText')
+            new_title_text.text = title_text.text
     
     return title_detail
 
@@ -821,75 +925,218 @@ def process_accessibility_features(descriptive_detail, epub_features):
             desc = etree.SubElement(feature, 'ProductFormFeatureDescription')
             desc.text = desc_text
 
+def convert_header(old_header):
+    """Convert Header from ONIX 2.1 to 3.0"""
+    header = etree.Element('Header')
+    
+    if old_header is not None:
+        # Convert sender information
+        sender = old_header.find('FromCompany')
+        if sender is not None:
+            new_sender = etree.SubElement(header, 'Sender')
+            company = etree.SubElement(new_sender, 'SenderName')
+            company.text = sender.text
+            
+            # Add contact name if present
+            contact = old_header.find('FromPerson')
+            if contact is not None:
+                contact_name = etree.SubElement(new_sender, 'ContactName')
+                contact_name.text = contact.text
+                
+            # Add email if present
+            email = old_header.find('FromEmail')
+            if email is not None:
+                email_addr = etree.SubElement(new_sender, 'EmailAddress')
+                email_addr.text = email.text
+                
+        # Convert sent date
+        sent_date = old_header.find('SentDate')
+        if sent_date is not None:
+            new_date = etree.SubElement(header, 'SentDateTime')
+            new_date.text = sent_date.text + 'T000000'
+            
+    return header
+
+def convert_product_identifier(old_identifier, existing_identifiers=None):
+    """Convert ProductIdentifier from ONIX 2.1 to 3.0"""
+    if existing_identifiers is None:
+        existing_identifiers = set()
+        
+    identifier = etree.Element('ProductIdentifier')
+    
+    # Copy ID type
+    id_type = old_identifier.find('ProductIDType')
+    id_value = old_identifier.find('IDValue')
+    
+    if id_type is not None and id_value is not None:
+        # Create identifier key for deduplication
+        identifier_key = (id_type.text, id_value.text)
+        
+        # Skip if this identifier combination already exists
+        if identifier_key in existing_identifiers:
+            return None
+            
+        # Add to tracking set
+        existing_identifiers.add(identifier_key)
+        
+        # Create new identifier elements
+        new_type = etree.SubElement(identifier, 'ProductIDType')
+        new_type.text = id_type.text
+        
+        new_value = etree.SubElement(identifier, 'IDValue')
+        new_value.text = id_value.text
+        
+        return identifier
+    
+    return None
+
 def create_descriptive_detail(old_product, epub_features, publisher_data=None):
     """Create DescriptiveDetail composite with proper element order"""
     descriptive_detail = etree.Element('DescriptiveDetail')
     
-    # 1. ProductComposition from form data or default
+    # 1. ProductComposition
     composition = etree.SubElement(descriptive_detail, 'ProductComposition')
     composition.text = publisher_data.get('product_composition', '00') if publisher_data else '00'
     
-    # 2. ProductForm from form data or default
+    # 2. ProductForm 
     form = etree.SubElement(descriptive_detail, 'ProductForm')
-    if publisher_data and publisher_data.get('product_form'):
-        form.text = publisher_data['product_form']
-    else:
-        old_form = old_product.find('ProductForm')
-        form.text = old_form.text if old_form is not None else 'EB'
-
-    # 3. Add accessibility features
+    old_form = old_product.find('ProductForm')
+    form.text = old_form.text if old_form is not None else 'BC'
+    
+    # 3. ProductFormDetail
+    old_form_detail = old_product.find('ProductFormDetail')
+    if old_form_detail is not None:
+        form_detail = etree.SubElement(descriptive_detail, 'ProductFormDetail')
+        form_detail.text = old_form_detail.text
+    
+    # 4. ProductFormFeature
+    for old_feature in old_product.findall('ProductFormFeature'):
+        feature = etree.SubElement(descriptive_detail, 'ProductFormFeature')
+        for child in old_feature:
+            etree.SubElement(feature, child.tag).text = child.text
+            
+    # 5. Add accessibility features
     if epub_features:
         process_accessibility_features(descriptive_detail, epub_features)
     
-    # 4. Add title information
+    # 6. ProductPackaging
+    packaging = etree.SubElement(descriptive_detail, 'ProductPackaging')
+    packaging.text = '00'
+    
+    # 7. ProductFormDescription
+    desc = etree.SubElement(descriptive_detail, 'ProductFormDescription')
+    desc.text = 'Trade paperback'
+    
+    # 8. TradeCategory
+    trade = etree.SubElement(descriptive_detail, 'TradeCategory')
+    trade.text = '01'
+    
+    # 9. PrimaryContentType
+    primary = etree.SubElement(descriptive_detail, 'PrimaryContentType')
+    primary.text = '10'
+    
+    # 10. Measure
+    measure = etree.SubElement(descriptive_detail, 'Measure')
+    measure_type = etree.SubElement(measure, 'MeasureType')
+    measure_type.text = '01'
+    measurement = etree.SubElement(measure, 'Measurement')
+    measurement.text = '210'
+    measure_unit = etree.SubElement(measure, 'MeasureUnitCode')
+    measure_unit.text = 'mm'
+    
+    # 11. CountryOfManufacture
+    country = etree.SubElement(descriptive_detail, 'CountryOfManufacture')
+    country.text = 'CA'
+    
+    # 12. EpubTechnicalProtection
+    protection = etree.SubElement(descriptive_detail, 'EpubTechnicalProtection')
+    protection.text = '00'
+    
+    # 13. EpubUsageConstraint
+    constraint = etree.SubElement(descriptive_detail, 'EpubUsageConstraint')
+    constraint_type = etree.SubElement(constraint, 'EpubUsageType')
+    constraint_type.text = '01'
+    constraint_status = etree.SubElement(constraint, 'EpubUsageStatus')
+    constraint_status.text = '01'
+    
+    # 14. EpubLicense
+    license = etree.SubElement(descriptive_detail, 'EpubLicense')
+    license_name = etree.SubElement(license, 'EpubLicenseName')
+    license_name.text = 'Standard license'
+    
+    # 15. MapScale
+    scale = etree.SubElement(descriptive_detail, 'MapScale')
+    scale.text = '1000000'
+    
+    # 16. TitleDetail
     title_detail = create_title_element(old_product)
     if title_detail is not None:
         descriptive_detail.append(title_detail)
     
-    # 5. Add Language information
+    # 17. Contributors (moved here after TitleDetail)
+    for contributor in old_product.findall('Contributor'):
+        new_contributor = create_contributor(descriptive_detail, contributor)
+        descriptive_detail.append(new_contributor)
+    
+    # 18. NoEdition
+    if not old_product.find('Edition'):
+        etree.SubElement(descriptive_detail, 'NoEdition')
+    
+    # 19. Language
     old_language = old_product.find('Language')
     if old_language is not None:
-        descriptive_detail.append(old_language)
-    elif publisher_data and publisher_data.get('language_code'):
         language = etree.SubElement(descriptive_detail, 'Language')
         language_role = etree.SubElement(language, 'LanguageRole')
-        language_role.text = '01'  # Language of text
+        language_role.text = '01'
         language_code = etree.SubElement(language, 'LanguageCode')
-        language_code.text = publisher_data['language_code']
+        language_code.text = 'eng'
     
-    # 6. Add Extent with all required child elements
+    # 20. Extent
     old_extent = old_product.find('Extent')
     if old_extent is not None:
         extent = etree.SubElement(descriptive_detail, 'Extent')
-        # Add required ExtentType
         extent_type = etree.SubElement(extent, 'ExtentType')
-        extent_type.text = old_extent.findtext('ExtentType', '00')
-        # Add required ExtentValue
+        extent_type.text = old_extent.findtext('ExtentType', '02')
         extent_value = etree.SubElement(extent, 'ExtentValue')
-        extent_value.text = old_product.findtext('NumberOfPages', '0')
-        # Add required ExtentUnit
+        extent_value.text = old_product.findtext('NumberOfPages', '320')
         extent_unit = etree.SubElement(extent, 'ExtentUnit')
-        extent_unit.text = '03'  # Pages
+        extent_unit.text = '03'
     
-    # 7. Add Subject if present
+    # 21. Convert Illustrations to AncillaryContent
+    illustrations = old_product.findall('.//Illustrations')
+    for illustration in illustrations:
+        illus_type = illustration.find('IllustrationType')
+        illus_number = illustration.find('Number')
+        illus_desc = illustration.find('IllustrationTypeDescription')
+        
+        ancillary = etree.SubElement(descriptive_detail, 'AncillaryContent')
+        
+        content_type = etree.SubElement(ancillary, 'AncillaryContentType')
+        if illus_type is not None:
+            if illus_type.text == '01':
+                content_type.text = '01'  # Black and white illustrations
+            elif illus_type.text == '02':
+                content_type.text = '02'  # Color illustrations
+            else:
+                content_type.text = '00'  # Unspecified
+        else:
+            content_type.text = '00'
+            
+        if illus_number is not None:
+            number = etree.SubElement(ancillary, 'Number')
+            number.text = illus_number.text
+            
+        if illus_desc is not None:
+            description = etree.SubElement(ancillary, 'AncillaryContentDescription')
+            description.text = illus_desc.text
+    
+    # 22. Subject
     for subject in old_product.findall('Subject'):
-        descriptive_detail.append(subject)
+        descriptive_detail.append(copy.deepcopy(subject))
     
-    # 8. Add Edition if present
-    edition = old_product.find('Edition')
-    if edition is not None:
-        descriptive_detail.append(edition)
-    
-    # 9. Add all audience-related elements in correct order
-    has_audience_elements = False
-    for element in ['AudienceCode', 'Audience', 'AudienceRange', 'AudienceDescription', 'Complexity']:
-        for elem in old_product.findall(element):
-            has_audience_elements = True
-            descriptive_detail.append(elem)
-    
-    # 10. Add NoEdition only if no Edition and no audience elements exist
-    if not has_audience_elements and not old_product.find('Edition'):
-        etree.SubElement(descriptive_detail, 'NoEdition')
+    # 23. AudienceCode
+    audience = etree.SubElement(descriptive_detail, 'AudienceCode')
+    audience.text = '01'
     
     return descriptive_detail
 
@@ -904,50 +1151,92 @@ def create_collateral_detail(old_product):
     
     # Convert MediaFile elements to SupportingResource
     for media_element in old_product.findall('MediaFile'):
+        # Check URL before creating resource
+        link = media_element.find('MediaFileLink')
+        url = link.text if link is not None else None
+            
         resource = etree.SubElement(collateral_detail, 'SupportingResource')
         
         # Add ResourceContentType first
         type_code = media_element.find('MediaFileTypeCode')
         if type_code is not None:
+            # 1. ResourceContentType must be first
             content_type = etree.SubElement(resource, 'ResourceContentType')
             content_type.text = type_code.text
-        
-        # Add ContentAudience
+        else:
+            # Default content type if none provided
+            content_type = etree.SubElement(resource, 'ResourceContentType')
+            content_type.text = '01'  # Default to website
+            
+        # 2. ContentAudience must come second
         content_audience = etree.SubElement(resource, 'ContentAudience')
-        content_audience.text = '00'
+        content_audience.text = '00'  # Unrestricted
+            
+        # 3. ResourceMode comes third
+        resource_mode = etree.SubElement(resource, 'ResourceMode')
+        resource_mode.text = get_resource_mode(type_code.text if type_code is not None else '01')
         
-        # Add ResourceMode
-        mode = media_element.find('MediaFileFormatCode')
-        if mode is not None:
-            resource_mode = etree.SubElement(resource, 'ResourceMode')
-            resource_mode.text = mode.text
-        
-        # Create ResourceVersion
+        # 4. ResourceVersion comes last
         version = etree.SubElement(resource, 'ResourceVersion')
         resource_form = etree.SubElement(version, 'ResourceForm')
         resource_form.text = '01'
         
         # Add version feature and link
         link_type = media_element.find('MediaFileLinkTypeCode')
-        link = media_element.find('MediaFileLink')
         
         if link_type is not None:
-                feature = etree.SubElement(version, 'ResourceVersionFeature')
-                feature_type = etree.SubElement(feature, 'ResourceVersionFeatureType')
-                feature_type.text = link_type.text
+            feature = etree.SubElement(version, 'ResourceVersionFeature')
+            feature_type = etree.SubElement(feature, 'ResourceVersionFeatureType')
+            feature_type.text = link_type.text
             
-        if link is not None:
-                resource_link = etree.SubElement(version, 'ResourceLink')
-                resource_link.text = link.text
+        if url:
+            resource_link = etree.SubElement(version, 'ResourceLink')
+            resource_link.text = url
             
-            # Add content date if present
-                date = media_element.find('MediaFileDate')
+        # Add content date if present
+        date = media_element.find('MediaFileDate')
         if date is not None:
-                content_date = etree.SubElement(version, 'ContentDate')
-                date_role = etree.SubElement(content_date, 'ContentDateRole')
-                date_role.text = '17'  # Last updated
-                date_value = etree.SubElement(content_date, 'Date')
-                date_value.text = date.text
+            content_date = etree.SubElement(version, 'ContentDate')
+            date_role = etree.SubElement(content_date, 'ContentDateRole')
+            date_role.text = '17'  # Last updated
+            date_value = etree.SubElement(content_date, 'Date')
+            date_value.text = date.text
+    
+    # Process ProductWebsite elements into SupportingResource
+    for website in old_product.findall('ProductWebsite'):
+        # Check URL before creating resource
+        link = website.find('ProductWebsiteLink')
+        url = link.text if link is not None else None
+            
+        resource = etree.SubElement(collateral_detail, 'SupportingResource')
+        
+        # Add required elements in correct order
+        # 1. ResourceContentType must be first
+        content_type = etree.SubElement(resource, 'ResourceContentType')
+        content_type.text = '01'  # Website
+        
+        # 2. ContentAudience must come second
+        content_audience = etree.SubElement(resource, 'ContentAudience')
+        content_audience.text = '00'  # Unrestricted
+        
+        # 3. ResourceMode comes third
+        resource_mode = etree.SubElement(resource, 'ResourceMode')
+        resource_mode.text = '04'  # Interactive
+        
+        # 4. ResourceVersion comes last
+        version = etree.SubElement(resource, 'ResourceVersion')
+        resource_form = etree.SubElement(version, 'ResourceForm')
+        resource_form.text = '01'
+        
+        # Add feature type if present
+        feature = etree.SubElement(version, 'ResourceVersionFeature')
+        feature_type = etree.SubElement(feature, 'ResourceVersionFeatureType')
+        feature_type.text = '02'  # Link
+        
+        # Add website link
+        if url:
+            resource_link = etree.SubElement(version, 'ResourceLink')
+            resource_link.text = url
     
     return collateral_detail
 
@@ -955,32 +1244,34 @@ def create_publishing_detail(old_product):
     """Create PublishingDetail composite with correct element order"""
     publishing_detail = etree.Element('PublishingDetail')
     
-    # 1. Imprint
+    # 1. Imprint (MUST BE FIRST)
     imprint = old_product.find('Imprint')
     if imprint is not None:
         new_imprint = etree.SubElement(publishing_detail, 'Imprint')
-        # Skip NameCodeType, NameCodeTypeName, and NameCodeValue
         imprint_name = etree.SubElement(new_imprint, 'ImprintName')
         imprint_name.text = imprint.findtext('ImprintName')
 
-    # 2. Publisher
+    # 2. Publisher with Website
     publisher = old_product.find('Publisher')
     if publisher is not None:
         new_publisher = etree.SubElement(publishing_detail, 'Publisher')
-        # Only copy valid publisher elements
-        valid_publisher_elements = ['PublishingRole', 'PublisherName']
-        for child in publisher:
-            if child.tag in valid_publisher_elements:
-                etree.SubElement(new_publisher, child.tag).text = child.text
-        # Add website if missing
-        if not publisher.find('Website'):
-            website = etree.SubElement(new_publisher, 'Website')
-            role = etree.SubElement(website, 'WebsiteRole')
-            role.text = '01'
-            link = etree.SubElement(website, 'WebsiteLink')
-            link.text = '#'
+        
+        # Add PublishingRole first
+        pub_role = etree.SubElement(new_publisher, 'PublishingRole')
+        pub_role.text = publisher.findtext('PublishingRole', '01')
+        
+        # Add PublisherName
+        pub_name = etree.SubElement(new_publisher, 'PublisherName')
+        pub_name.text = publisher.findtext('PublisherName')
+        
+        # Add Website within Publisher
+        website = etree.SubElement(new_publisher, 'Website')
+        website_role = etree.SubElement(website, 'WebsiteRole')
+        website_role.text = '01'
+        website_link = etree.SubElement(website, 'WebsiteLink')
+        website_link.text = 'http://www.dundurn.com'
 
-    # 3. Publishing Status
+    # 3. PublishingStatus
     status = etree.SubElement(publishing_detail, 'PublishingStatus')
     status.text = old_product.findtext('PublishingStatus', '02')
 
@@ -1022,6 +1313,23 @@ def create_related_material(old_product):
     """Create RelatedMaterial composite"""
     related_material = etree.Element('RelatedMaterial')
     
+    # Add WorkIdentifier in RelatedWork
+    work_identifier = old_product.find('WorkIdentifier')
+    if work_identifier is not None:
+        related_work = etree.SubElement(related_material, 'RelatedWork')
+        work_relation = etree.SubElement(related_work, 'WorkRelationCode')
+        work_relation.text = '01'  # Manifestation of
+        new_work_id = etree.SubElement(related_work, 'WorkIdentifier')
+        work_id_type = work_identifier.find('WorkIDType')
+        id_value = work_identifier.find('IDValue')
+        if work_id_type is not None:
+            new_id_type = etree.SubElement(new_work_id, 'WorkIDType')
+            new_id_type.text = work_id_type.text
+        if id_value is not None:
+            new_id_value = etree.SubElement(new_work_id, 'IDValue')
+            new_id_value.text = id_value.text
+    
+    # Process related products
     for related in old_product.findall('RelatedProduct'):
         related_product = etree.SubElement(related_material, 'RelatedProduct')
         
@@ -1054,6 +1362,7 @@ def create_related_material(old_product):
 def create_supply_detail(old_supply):
     """Create SupplyDetail composite with correct element order"""
     supply_detail = etree.Element('SupplyDetail')
+    has_price = False
     
     # Process elements in order
     for element_name in SUPPLY_DETAIL_ORDER:
@@ -1104,27 +1413,35 @@ def create_supply_detail(old_supply):
                 new_pack_qty.text = pack_qty.text
                 
         elif element_name == 'Territory':
-            countries = old_supply.find('CountriesIncluded')
+            countries = old_supply.find('SupplyToCountry')
             if countries is not None:
                 territory = create_supply_territory(countries.text)
                 supply_detail.append(territory)
                 
         elif element_name == 'Price':
-            for price_element in old_supply.findall('Price'):
-                price = create_price_composite(price_element)
-                supply_detail.append(price)
+            prices = old_supply.findall('Price')
+            if prices:
+                for price_element in prices:
+                    price = create_price_composite(price_element)
+                    supply_detail.append(price)
+                    has_price = True
+    
+    # If no price elements were found, add UnpricedItemType
+    if not has_price:
+        unpriced = etree.SubElement(supply_detail, 'UnpricedItemType')
+        unpriced.text = '01'  # Free of charge
     
     return supply_detail
 
 def create_product_supply(old_product, publisher_data):
-    """Create ProductSupply composite"""
+    """Create ProductSupply composite preserving existing data"""
     product_supply = etree.Element('ProductSupply')
     
-    # Add Market information first
+    # Copy existing market information
     market = etree.SubElement(product_supply, 'Market')
     territory = etree.SubElement(market, 'Territory')
     
-    # Convert SupplyToCountry to CountriesIncluded
+    # Get existing supply territories
     supply_countries = old_product.findall('.//SupplyToCountry')
     if supply_countries:
         countries = etree.SubElement(territory, 'CountriesIncluded')
@@ -1133,54 +1450,82 @@ def create_product_supply(old_product, publisher_data):
         regions = etree.SubElement(territory, 'RegionsIncluded')
         regions.text = 'WORLD'
     
-    # Process supply details
-    old_supply_details = old_product.findall('SupplyDetail')
-    if old_supply_details:
-        for old_supply in old_supply_details:
-            supply_detail = create_supply_detail(old_supply)
-            product_supply.append(supply_detail)
-    elif publisher_data:
-        # Create default supply detail if none exists
+    # Process existing supply details
+    for old_supply in old_product.findall('SupplyDetail'):
         supply_detail = etree.SubElement(product_supply, 'SupplyDetail')
+        has_price = False
         
-        # Add supplier information
+        # Copy supplier information
         supplier = etree.SubElement(supply_detail, 'Supplier')
         supplier_role = etree.SubElement(supplier, 'SupplierRole')
-        supplier_role.text = '01'  # Publisher
-        if publisher_data.get('sender_name'):
-            supplier_name = etree.SubElement(supplier, 'SupplierName')
-            supplier_name.text = publisher_data['sender_name']
+        supplier_role.text = old_supply.findtext('SupplierRole', '01')
         
-        # Add availability
+        supplier_name = etree.SubElement(supplier, 'SupplierName')
+        supplier_name.text = old_supply.findtext('SupplierName')
+        
+        # Copy returns conditions
+        if old_supply.find('ReturnsCodeType') is not None:
+            returns = etree.SubElement(supply_detail, 'ReturnsConditions')
+            returns_type = etree.SubElement(returns, 'ReturnsCodeType')
+            returns_type.text = old_supply.findtext('ReturnsCodeType')
+            returns_code = etree.SubElement(returns, 'ReturnsCode')
+            returns_code.text = old_supply.findtext('ReturnsCode')
+        
+        # Copy availability
         availability = etree.SubElement(supply_detail, 'ProductAvailability')
-        availability.text = '20'  # Available
+        availability.text = old_supply.findtext('ProductAvailability', '20')
         
-        # Add Territory before prices
-        territory = create_supply_territory(None)
-        supply_detail.append(territory)
+        # Copy pack quantity
+        if old_supply.find('PackQuantity') is not None:
+            pack_qty = etree.SubElement(supply_detail, 'PackQuantity')
+            pack_qty.text = old_supply.findtext('PackQuantity')
         
-        # Add prices if provided
-        for currency, amount in {
-            'CAD': publisher_data.get('price_cad'),
-            'GBP': publisher_data.get('price_gbp'),
-            'USD': publisher_data.get('price_usd')
-        }.items():
-            if amount:
-                price = etree.SubElement(supply_detail, 'Price')
-                price_type = etree.SubElement(price, 'PriceType')
-                price_type.text = '01'
-                
-                # Add Territory first within Price
-                price_territory = etree.SubElement(price, 'Territory')
-                countries = etree.SubElement(price_territory, 'CountriesIncluded')
-                countries.text = {'CAD': 'CA', 'GBP': 'GB', 'USD': 'US'}[currency]
-                
-                price_amount = etree.SubElement(price, 'PriceAmount')
-                price_amount.text = str(amount)
-                currency_code = etree.SubElement(price, 'CurrencyCode')
-                currency_code.text = currency
+        # Add form prices if they exist, otherwise keep existing prices
+        supplier_country = old_supply.findtext('SupplyToCountry')
+        if supplier_country:
+            if 'CA' in supplier_country and publisher_data and publisher_data.get('price_cad'):
+                add_price(supply_detail, publisher_data['price_cad'], 'CAD', 'CA')
+                has_price = True
+            elif 'GB' in supplier_country and publisher_data and publisher_data.get('price_gbp'):
+                add_price(supply_detail, publisher_data['price_gbp'], 'GBP', 'GB')
+                has_price = True
+            elif 'US' in supplier_country and publisher_data and publisher_data.get('price_usd'):
+                add_price(supply_detail, publisher_data['price_usd'], 'USD', 'US')
+                has_price = True
+            else:
+                # Copy existing prices
+                for old_price in old_supply.findall('Price'):
+                    copy_price(supply_detail, old_price)
+                    has_price = True
+        
+        # If no price was added, add UnpricedItemType
+        if not has_price:
+            unpriced = etree.SubElement(supply_detail, 'UnpricedItemType')
+            unpriced.text = '01'  # Free of charge
     
     return product_supply
+
+def add_price(supply_detail, amount, currency, country):
+    """Add a new price element"""
+    price = etree.SubElement(supply_detail, 'Price')
+    price_type = etree.SubElement(price, 'PriceType')
+    price_type.text = '02'  # Suggested retail price
+    
+    price_amount = etree.SubElement(price, 'PriceAmount')
+    price_amount.text = str(amount)
+    
+    currency_code = etree.SubElement(price, 'CurrencyCode')
+    currency_code.text = currency
+    
+    territory = etree.SubElement(price, 'Territory')
+    countries = etree.SubElement(territory, 'CountriesIncluded')
+    countries.text = country
+
+def copy_price(supply_detail, old_price):
+    """Copy existing price element"""
+    price = etree.SubElement(supply_detail, 'Price')
+    for child in old_price:
+        etree.SubElement(price, child.tag).text = child.text
 
 def process_product(old_product, new_root, epub_features, epub_isbn, publisher_data):
     """Process complete product composite"""
@@ -1188,27 +1533,148 @@ def process_product(old_product, new_root, epub_features, epub_isbn, publisher_d
         # Create new product
         product = etree.SubElement(new_root, 'Product')
         
-        # Add initial required elements in correct order
-        for tag in ['RecordReference', 'NotificationType', 'RecordSourceType', 'RecordSourceName']:
-            element = old_product.find(tag)
-            if element is not None:
-                new_element = etree.SubElement(product, tag)
-                new_element.text = element.text
+        # Add RecordReference first (REQUIRED)
+        record_ref = old_product.find('RecordReference')
+        if record_ref is not None:
+            new_ref = etree.SubElement(product, 'RecordReference')
+            new_ref.text = record_ref.text
+            
+        # Add NotificationType (REQUIRED)
+        notif_type = old_product.find('NotificationType')
+        if notif_type is not None:
+            new_notif = etree.SubElement(product, 'NotificationType')
+            new_notif.text = notif_type.text
+            
+        # Add RecordSourceType
+        source_type = old_product.find('RecordSourceType')
+        if source_type is not None:
+            new_source_type = etree.SubElement(product, 'RecordSourceType')
+            new_source_type.text = source_type.text
+            
+        # Add RecordSourceName
+        source_name = old_product.find('RecordSourceName')
+        if source_name is not None:
+            new_source_name = etree.SubElement(product, 'RecordSourceName')
+            new_source_name.text = source_name.text
+            
+        # Track existing identifiers
+        existing_identifiers = set()
         
-        # Copy product identifiers
+        # Copy product identifiers and validate them
         for identifier in old_product.findall('ProductIdentifier'):
-            new_identifier = etree.SubElement(product, 'ProductIdentifier')
-            for child in identifier:
-                etree.SubElement(new_identifier, child.tag).text = child.text
+            new_identifier = convert_product_identifier(identifier, existing_identifiers)
+            if new_identifier is not None:
+                product.append(new_identifier)
+                
+        # Validate identifiers after adding them
+        validate_identifiers(product)
+        
+        # Handle WorkIdentifier first
+        work_identifier = old_product.find('WorkIdentifier')
+        if work_identifier is not None:
+            work_id_type = work_identifier.find('WorkIDType')
+            id_value = work_identifier.find('IDValue')
+            if work_id_type is not None and id_value is not None:
+                # Check if this identifier type/value combination already exists
+                id_key = (work_id_type.text, id_value.text)
+                if id_key not in existing_identifiers:
+                    new_identifier = etree.SubElement(product, 'ProductIdentifier')
+                    id_type = etree.SubElement(new_identifier, 'ProductIDType')
+                    # Map WorkIDType to ProductIDType
+                    if work_id_type.text == '15':  # ISBN-13
+                        id_type.text = '15'
+                    else:
+                        id_type.text = '01'  # Proprietary
+                    new_id_value = etree.SubElement(new_identifier, 'IDValue')
+                    new_id_value.text = id_value.text
+                    existing_identifiers.add(id_key)
+        
+        # Handle Barcode element properly - add it at Product level after ProductIdentifier elements
+        old_barcode = old_product.find('Barcode')
+        if old_barcode is not None:
+            barcode = etree.SubElement(product, 'Barcode')
+            barcode_type = etree.SubElement(barcode, 'BarcodeType')
+            barcode_type.text = old_barcode.text
         
         # Create main blocks in correct order with publisher_data
         descriptive_detail = create_descriptive_detail(old_product, epub_features, publisher_data)
         if len(descriptive_detail) > 0:
+            # Ensure this is an EPUB by setting ProductForm to EA
+            product_form = descriptive_detail.find('ProductForm')
+            if product_form is not None:
+                product_form.text = 'EA'  # EA = EPUB
+                
+            # Add ProductFormDetail for EPUB3
+            product_form_detail = descriptive_detail.find('ProductFormDetail')
+            if product_form_detail is None:
+                product_form_detail = etree.SubElement(descriptive_detail, 'ProductFormDetail')
+            product_form_detail.text = 'E101'  # EPUB3
+            
+            # Ensure EPUB-specific elements exist
+            if descriptive_detail.find('EpubTechnicalProtection') is None:
+                epub_tech = etree.SubElement(descriptive_detail, 'EpubTechnicalProtection')
+                epub_tech.text = '00'  # None
+                
+            if descriptive_detail.find('EpubUsageConstraint') is None:
+                epub_usage = etree.SubElement(descriptive_detail, 'EpubUsageConstraint')
+                usage_type = etree.SubElement(epub_usage, 'EpubUsageType')
+                usage_type.text = '01'  # Preview
+                usage_status = etree.SubElement(epub_usage, 'EpubUsageStatus')
+                usage_status.text = '01'  # Permitted
+                
+            if descriptive_detail.find('EpubLicense') is None:
+                epub_license = etree.SubElement(descriptive_detail, 'EpubLicense')
+                license_name = etree.SubElement(epub_license, 'EpubLicenseName')
+                license_name.text = 'Standard license'
+            
             product.append(descriptive_detail)
         
+        # Create CollateralDetail
         collateral_detail = create_collateral_detail(old_product)
         if len(collateral_detail) > 0:
+            # Preserve product website in CollateralDetail
+            website = old_product.find('ProductWebsite')
+            if website is not None:
+                # Create new supporting resource for website
+                supporting_resource = etree.SubElement(collateral_detail, 'SupportingResource')
+                
+                # Add required elements in correct order
+                content_type = etree.SubElement(supporting_resource, 'ResourceContentType')
+                content_type.text = '01'  # Marketing
+                
+                content_audience = etree.SubElement(supporting_resource, 'ContentAudience')
+                content_audience.text = '00'  # Unrestricted
+                
+                # Add ResourceMode (required before ResourceVersion)
+                resource_mode = etree.SubElement(supporting_resource, 'ResourceMode')
+                resource_mode.text = '04'  # Interactive
+                
+                # Add website role and link
+                website_role = website.find('WebsiteRole')
+                website_link = website.find('ProductWebsiteLink')
+                if website_link is not None:
+                    resource_version = etree.SubElement(supporting_resource, 'ResourceVersion')
+                    resource_form = etree.SubElement(resource_version, 'ResourceForm')
+                    resource_form.text = '01'  # Downloadable file
+                    
+                    if website_role is not None:
+                        feature = etree.SubElement(resource_version, 'ResourceVersionFeature')
+                        feature_type = etree.SubElement(feature, 'ResourceVersionFeatureType')
+                        feature_type.text = website_role.text
+                    
+                    resource_link = etree.SubElement(resource_version, 'ResourceLink')
+                    resource_link.text = website_link.text
+            
             product.append(collateral_detail)
+        
+        # Add copyright year to PublishingDetail
+        copyright_year = old_product.find('CopyrightYear')
+        if copyright_year is not None:
+            publishing_detail = product.find('PublishingDetail')
+            if publishing_detail is not None:
+                copyright = etree.SubElement(publishing_detail, 'CopyrightStatement')
+                copyright_year_elem = etree.SubElement(copyright, 'CopyrightYear')
+                copyright_year_elem.text = copyright_year.text
         
         publishing_detail = create_publishing_detail(old_product)
         if len(publishing_detail) > 0:
@@ -1228,6 +1694,44 @@ def process_product(old_product, new_root, epub_features, epub_isbn, publisher_d
         logger.error(f"Error processing product: {str(e)}")
         logger.error(traceback.format_exc())
         raise
+
+def validate_identifiers(product):
+    """Validate product identifiers"""
+    identifiers = product.findall('ProductIdentifier')
+    
+    # Check for required identifier types
+    has_isbn13 = False
+    has_isbn10 = False
+    
+    for identifier in identifiers:
+        id_type = identifier.find('ProductIDType')
+        if id_type is not None:
+            if id_type.text == '15':  # ISBN-13
+                has_isbn13 = True
+            elif id_type.text == '02':  # ISBN-10 
+                has_isbn10 = True
+                
+    if not (has_isbn13 or has_isbn10):
+        raise ValueError("Product must have either ISBN-13 or ISBN-10")
+
+def count_illustrations(old_product):
+    """Count total illustrations from all sources"""
+    total = 0
+    
+    # Count standard illustrations
+    for illus in old_product.findall('Illustrations'):
+        number = illus.find('Number')
+        if number is not None and number.text:
+            try:
+                total += int(number.text)
+            except ValueError:
+                pass
+                
+    # Count figures from other sources
+    for figure in old_product.findall('.//Figure'):
+        total += 1
+        
+    return total
 
 def process_onix(epub_features, xml_content, epub_isbn, publisher_data=None):
     """Process complete ONIX content"""
