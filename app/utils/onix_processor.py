@@ -118,12 +118,12 @@ TEXT_CONTENT_ORDER = [
     'SourceTitle'
 ]
 
-# Price element order
+# Update the PRICE_ELEMENT_ORDER constant
 PRICE_ELEMENT_ORDER = [
     'PriceType',
-    'PriceAmount',
+    'PriceAmount', 
     'CurrencyCode',
-    'Territory',
+    'Territory',  # Territory must come before tax elements
     'TaxType',
     'TaxRatePercent',
     'TaxableAmount',
@@ -1522,10 +1522,43 @@ def add_price(supply_detail, amount, currency, country):
     countries.text = country
 
 def copy_price(supply_detail, old_price):
-    """Copy existing price element"""
+    """Copy existing price element with proper ONIX 3.0 tag mapping"""
     price = etree.SubElement(supply_detail, 'Price')
-    for child in old_price:
-        etree.SubElement(price, child.tag).text = child.text
+    
+    # Only include allowed elements in ONIX 3.0
+    allowed_elements = {
+        'PriceTypeCode': 'PriceType',
+        'PriceAmount': 'PriceAmount',
+        'CurrencyCode': 'CurrencyCode',
+        'CountryCode': 'Territory'
+    }
+    
+    # Process elements in correct order according to ONIX 3.0
+    element_order = [
+        'PriceType',
+        'PriceAmount',
+        'CurrencyCode',
+        'Territory'  # Territory must come last
+    ]
+    
+    # Process elements in correct order
+    for element_name in element_order:
+        # Handle special case for Territory
+        if element_name == 'Territory':
+            country_code = old_price.find('CountryCode')
+            if country_code is not None:
+                territory = etree.SubElement(price, 'Territory')
+                countries = etree.SubElement(territory, 'CountriesIncluded')
+                countries.text = country_code.text
+            continue
+            
+        # Find old element using reverse mapping
+        old_name = next((k for k, v in allowed_elements.items() if v == element_name), element_name)
+        old_element = old_price.find(old_name)
+        
+        if old_element is not None and old_element.text:
+            new_element = etree.SubElement(price, element_name)
+            new_element.text = old_element.text
 
 def process_product(old_product, new_root, epub_features, epub_isbn, publisher_data):
     """Process complete product composite"""
